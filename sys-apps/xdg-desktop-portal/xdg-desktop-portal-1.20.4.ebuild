@@ -46,7 +46,6 @@ RDEPEND="
 "
 BDEPEND="
 	dev-util/gdbus-codegen
-	sys-devel/gettext
 	virtual/pkgconfig
 	test? (
 		dev-util/umockdev
@@ -58,6 +57,13 @@ BDEPEND="
 PATCHES=(
 	"${FILESDIR}/${PN}-1.20.4-optional-gstreamer.patch"
 )
+
+src_prepare() {
+	# The ChromeOS dev root does not ship msgfmt; translations are optional
+	# for this host installation.
+	sed -i "/subdir('po')/d; /subdir('po\\/')/d" meson.build || die
+	default
+}
 
 src_configure() {
 	local emesonargs=(
@@ -88,4 +94,10 @@ src_install() {
 	# ChromeOS has no systemd user manager. The D-Bus service installed by
 	# upstream is sufficient to activate the portal on a session bus.
 	rm -rf "${ED}/etc/systemd" "${ED}/usr/lib/systemd" || die
+
+	local service
+	for service in "${ED}"/usr/share/dbus-1/services/*.service; do
+		[[ -f ${service} ]] || continue
+		sed -i 's#Exec=/usr/libexec/#Exec=/usr/local/libexec/#g' "${service}" || die
+	done
 }

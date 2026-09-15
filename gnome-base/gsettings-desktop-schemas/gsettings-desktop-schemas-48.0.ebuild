@@ -7,6 +7,9 @@ EAPI=7
 PLATFORM2_TEST_DEPS=test-only
 inherit gnome.org gnome2-utils meson xdg
 
+# The ChromeOS Portage profile does not define Gentoo's gnome mirror alias.
+SRC_URI="https://download.gnome.org/sources/gsettings-desktop-schemas/48/gsettings-desktop-schemas-48.0.tar.xz"
+
 DESCRIPTION="Collection of GSettings schemas for GNOME desktop"
 HOMEPAGE="https://gitlab.gnome.org/GNOME/gsettings-desktop-schemas"
 

@@ -57,7 +57,6 @@ RDEPEND="
 
 DEPEND="${RDEPEND}"
 BDEPEND="
-	>=sys-devel/gettext-0.18.2
 	virtual/pkgconfig
 	dev-util/gdbus-codegen
 	dev-util/glib-utils
@@ -93,6 +92,10 @@ pkg_setup() {
 }
 
 src_prepare() {
+	# The ChromeOS dev root does not ship msgfmt; translations are optional
+	# for this host installation.
+	sed -i "/subdir('po')/d; /subdir('po\\/')/d" meson.build || die
+
 	default
 	# This line fails because locales are in /usr/lib/locale/locale-archive.
 	sed -i 's:^cp -r /usr/lib/locale/C.*:#\0:' tests/make-test-runtime.sh || die
@@ -130,6 +133,16 @@ src_install() {
 	find "${ED}" -name '*.la' -delete || die
 	# resolve conflict with acct-user/flatpak for #856706
 	rm -rf "${ED}/usr/lib/sysusers.d"
+
+	# The package is installed below /usr/local on ChromeOS, while upstream
+	# service files are generated with the conventional /usr/libexec path.
+	# D-Bus and user-service activation must point into the developer sysroot.
+	local service
+	for service in "${ED}"/usr/share/dbus-1/services/*.service \
+		"${ED}"/usr/lib/systemd/user/*.service; do
+		[[ -f ${service} ]] || continue
+		sed -i 's#Exec=/usr/libexec/#Exec=/usr/local/libexec/#g' "${service}" || die
+	done
 
 	if use systemd; then
 	   systemd_dounit "${FILESDIR}"/flatpak-update.{service,timer}

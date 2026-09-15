@@ -6,6 +6,9 @@ EAPI=7
 PLATFORM2_TEST_DEPS=test-only
 inherit bash-completion-r1 gnome.org gnome2-utils meson systemd virtualx xdg
 
+# The ChromeOS Portage profile does not define Gentoo's gnome mirror alias.
+SRC_URI="https://download.gnome.org/sources/dconf/0.40/dconf-0.40.0.tar.xz"
+
 DESCRIPTION="Simple low-level configuration system"
 HOMEPAGE="https://wiki.gnome.org/Projects/dconf"
 
@@ -45,6 +48,15 @@ src_configure() {
 
 src_install() {
 	meson_src_install
+
+	# D-Bus and user-service activation must use the ChromeOS developer
+	# sysroot, whose runtime prefix is /usr/local.
+	local service
+	for service in "${ED}"/usr/share/dbus-1/services/*.service \
+		"${ED}"/usr/lib/systemd/user/*.service; do
+		[[ -f ${service} ]] || continue
+		sed -i 's#Exec=/usr/libexec/#Exec=/usr/local/libexec/#g' "${service}" || die
+	done
 
 	# GSettings backend may be one of: memory, gconf, dconf
 	# Only dconf is really considered functional by upstream

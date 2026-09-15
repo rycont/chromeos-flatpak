@@ -31,10 +31,26 @@ flatpak --user install flathub APP_ID
 flatpak --user run APP_ID
 ```
 
+The installer creates `/usr/local/etc/profile` so new host shells include
+`/usr/local/bin`, `/usr/local/share`, and the target system installation at
+`/usr/local/var/lib/flatpak`. For a system-scope remote or installation, run
+the Flatpak command as root (the system repository is root-owned):
+
+```sh
+sudo -n flatpak --system remote-add --if-not-exists \
+  flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+sudo -n flatpak --system install flathub APP_ID
+```
+
 The base installation also includes the core `xdg-desktop-portal` service and
 the small PipeWire client ABI it needs. It uses D-Bus activation and does not
 enable systemd. This is the portal dispatcher and document portal; it does not
 provide a ChromeOS-native Files picker by itself.
+
+On the validated host, D-Bus successfully auto-activates
+`org.freedesktop.portal.Desktop`, `org.freedesktop.portal.Documents`, and
+`org.freedesktop.impl.portal.PermissionStore`. The expected optional
+RealtimeKit warning remains because ChromeOS does not provide RealtimeKit.
 
 An optional GTK desktop-portal ebuild is included, but it is not part of the
 base installation. A clean `kukui` developer sysroot does not provide the
@@ -69,6 +85,10 @@ need the `gh` CLI. For safety, it refuses to run when
 `/usr/local` already contains anything; remove the existing developer sysroot
 with `sudo dev_install --uninstall` and rerun it if necessary. It never empties
 an existing `/usr/local` itself.
+
+The pinned build fixes the ChromeOS developer sysroot's missing target-prefix
+metadata and old Portage environment propagation. It does not add the general
+Gentoo repository, and it does not overwrite the immutable ChromeOS root.
 
 If the command is launched from a controlling PC with an authenticated `gh`,
 resolve the current `main` SHA there and stream the exact revision to the

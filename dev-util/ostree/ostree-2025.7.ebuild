@@ -74,14 +74,42 @@ PATCHES=(
 
 src_prepare() {
 	default
+	# The release archive already contains generated Automake files.
+	touch aclocal.m4 Makefile.in configure config.h.in || die
 }
 
 src_configure() {
+	# The ChromeOS dev root does not define CHOST although gcc is target-specific.
+	export CHOST="${CHOST:-$(gcc -dumpmachine)}"
+	# ChromiumOS gcc uses a sysroot libc; put its linker objects before host
+	# /usr/lib64 while configuring this target package.
+	export LDFLAGS="-L/usr/local/toolchain-arm64/lib/aarch64-linux-gnu ${LDFLAGS}"
+	export LIBS="-lssl -lcrypto -lmount -lffi -lblkid -lgnutls -lnettle -lhogweed -lgmp -ltasn1 -lidn2 -lunistring -lzstd -lbrotlidec -lbrotlienc -lbrotlicommon -lnghttp2 -lresolv ${LIBS}"
+	export LD_LIBRARY_PATH="/usr/lib64:${LD_LIBRARY_PATH}"
+	export PKG_CONFIG_PATH="/usr/local/usr/lib64/pkgconfig:/usr/local/usr/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig"
+	export PKG_CONFIG_LIBDIR="/usr/local/usr/lib64/pkgconfig:/usr/local/usr/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig"
+	local pkg_config_wrapper="${T}/pkg-config-toolchain"
+	cat > "${pkg_config_wrapper}" <<'EOF'
+#!/bin/sh
+case " $* " in
+  *--libs*)
+    printf "%s " "-L/usr/local/toolchain-arm64/lib/aarch64-linux-gnu"
+    /usr/local/bin/pkgconf "$@" | /usr/bin/tr "\n" " "
+    printf " -lpcre2-8\n"
+    exit $?
+    ;;
+esac
+exec /usr/local/bin/pkgconf "$@"
+EOF
+	chmod +x "${pkg_config_wrapper}" || die
+	export PKG_CONFIG="${pkg_config_wrapper}"
+	export OT_DEP_E2P_CFLAGS="-I/usr/local/toolchain-arm64/include"
+	export OT_DEP_E2P_LIBS="-L/usr/local/toolchain-arm64/lib/aarch64-linux-gnu"
 	# Needs Bison (bug #884289)
 	unset YACC
 
 	local econfargs=(
-		--enable-man
+		--disable-man
 		--enable-shared
 		--with-grub2-mkconfig-path=grub-mkconfig
 		--with-modern-grub
@@ -110,10 +138,24 @@ src_configure() {
 	econf "${econfargs[@]}"
 }
 
+src_compile() {
+	emake \
+		LDFLAGS="-L/usr/local/toolchain-arm64/lib/aarch64-linux-gnu -L/usr/local/usr/lib64 -Wl,-rpath-link,/usr/lib64 -Wl,-rpath-link,/usr/local/usr/lib64" \
+		LIBS="-lssl -lcrypto -lmount -lffi -lblkid -lgnutls -lnettle -lhogweed -lgmp -ltasn1 -lidn2 -lunistring -lzstd -lbrotlidec -lbrotlienc -lbrotlicommon -lnghttp2 -lresolv -lz"
+}
+
 src_install() {
 	default
 	dotmpfiles src/boot/ostree-tmpfiles.conf #901797
 	find "${D}" -name '*.la' -type f -delete || die
+
+	# pkg-config metadata otherwise points at the immutable host prefix. The
+	# target runtime prefix of this overlay is /usr/local.
+	local pc
+	for pc in "${ED}"/usr/lib*/pkgconfig/ostree-1.pc; do
+		[[ -f ${pc} ]] || continue
+		sed -i 's#^prefix=/usr$#prefix=/usr/local/usr#' "${pc}" || die
+	done
 }
 
 pkg_postinst() {

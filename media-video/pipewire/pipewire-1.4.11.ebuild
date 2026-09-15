@@ -36,6 +36,12 @@ PATCHES=(
 	"${FILESDIR}/${PN}-${PV}-no-spa-plugin-deps.patch"
 )
 
+src_prepare() {
+	default
+	sed -i '/ncurses_dep = dependency/c\
+ncurses_dep = disabler()' "${S}/meson.build" || die
+}
+
 src_configure() {
 	local emesonargs=(
 		-Ddocs=disabled

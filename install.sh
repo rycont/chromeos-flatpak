@@ -17,6 +17,7 @@ FIND="/usr/bin/find"
 GREP="/bin/grep"
 ID="/usr/bin/id"
 INSTALL="/usr/bin/install"
+LN="/bin/ln"
 CP="/bin/cp"
 MKDTEMP="/usr/bin/mktemp"
 MV="/bin/mv"
@@ -30,7 +31,7 @@ die() {
 	exit 1
 }
 
-for tool in "$SUDO" "$CURL" "$FIND" "$GREP" "$ID" "$INSTALL" "$CP" \
+for tool in "$SUDO" "$CURL" "$FIND" "$GREP" "$ID" "$INSTALL" "$LN" "$CP" \
 	"$MKDTEMP" "$MV" "$RM" "$SED" "$TAR" "$TEE"; do
 	[ -x "$tool" ] || die "required host tool is missing: $tool"
 done
@@ -45,6 +46,41 @@ fi
 
 run_root() {
 	"${SUDO_CMD[@]}" "$@"
+}
+
+ensure_target_link() {
+	local target=$1 source=$2
+	if [ -e "$target" ] || [ -L "$target" ]; then
+		return
+	fi
+	[ -e "$source" ] || die "required host path is missing: $source"
+	run_root "$INSTALL" -d -m 0755 "${target%/*}"
+	run_root "$LN" -s "$source" "$target"
+}
+
+patch_runtime_paths() {
+	local service
+	for service in /usr/local/share/dbus-1/services/*.service \
+		/usr/local/lib/systemd/user/*.service; do
+		[ -f "$service" ] || continue
+		run_root "$SED" -i \
+			's#Exec=/usr/libexec/#Exec=/usr/local/libexec/#g' "$service"
+	done
+}
+
+install_runtime_profile() {
+	run_root "$INSTALL" -d -m 0755 /usr/local/etc/profile.d
+	run_root "$TEE" /usr/local/etc/profile >/dev/null <<'EOF'
+# ChromeOS developer sysroot runtime environment for chromeos-flatpak.
+export PATH="/usr/local/bin:/usr/local/sbin${PATH:+:$PATH}"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+export FLATPAK_SYSTEM_DIR="${FLATPAK_SYSTEM_DIR:-/usr/local/var/lib/flatpak}"
+
+for flatpak_profile in /usr/local/etc/profile.d/*.sh; do
+	[ -r "$flatpak_profile" ] && . "$flatpak_profile"
+done
+unset flatpak_profile
+EOF
 }
 
 if [ -d /usr/local ]; then
@@ -141,6 +177,17 @@ run_root "$CP" -f "$OVERLAY/config/package.use/flatpak-chromeos-portal" \
 run_root "$CP" -f "$OVERLAY/config/package.accept_keywords/flatpak-chromeos" \
 	/usr/local/etc/portage/package.accept_keywords/flatpak-chromeos
 
+# Several ChromeOS development headers live in the immutable host tree while
+# the cross-built packages look below /usr/local. These links are deliberately
+# narrow and only bridge the paths used by the pinned kukui build.
+ensure_target_link /usr/local/lib64/libffi-3.1/include \
+	/usr/lib64/libffi-3.1/include
+ensure_target_link /usr/local/include/libmount /usr/include/libmount
+ensure_target_link /usr/local/include/blkid /usr/include/blkid
+ensure_target_link /usr/local/include/libpng16 /usr/include/libpng16
+ensure_target_link /usr/local/include/json-glib-1.0 /usr/include/json-glib-1.0
+ensure_target_link /usr/local/include/libxml2 /usr/include/libxml2
+
 # The ChromeOS developer profile lists the host's GLib as package.provided,
 # but package.provided cannot express its real SLOT=2.  Dependencies such as
 # gdk-pixbuf:2 and xdg-desktop-portal therefore fail to see the host library.
@@ -179,6 +226,8 @@ if run_root "$GREP" -q '^PORTAGE_BINHOST=' "$make_conf"; then
 else
 	run_root "$TEE" -a "$make_conf" >/dev/null <<<"$binhost_value"
 fi
+
+install_runtime_profile
 
 # ChromiumOS publishes the common index with a gs:// BASE_URI, while this
 # developer sysroot only has curl. Translate that bucket URI inside the old
@@ -226,8 +275,10 @@ run_root env \
 	--getbinpkg --usepkg --binpkg-respect-use=n --binpkg-changed-deps=n --verbose \
 	sys-apps/flatpak sys-apps/xdg-desktop-portal
 
+patch_runtime_paths
+
 run_root test -x /usr/local/bin/flatpak
 run_root test -x /usr/local/libexec/xdg-desktop-portal
-run_root test -f /usr/local/usr/share/dbus-1/services/org.freedesktop.portal.Desktop.service
+run_root test -f /usr/local/share/dbus-1/services/org.freedesktop.portal.Desktop.service
 echo "chromeos-flatpak: Flatpak and the core desktop portal were installed"
 echo "chromeos-flatpak: run 'flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo' next"

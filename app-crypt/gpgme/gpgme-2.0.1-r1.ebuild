@@ -13,11 +13,11 @@ EAPI=7
 # * https://dev.gnupg.org/T6313#166339
 # * https://dev.gnupg.org/T6673#174545
 
-inherit libtool flag-o-matic out-of-source
+inherit flag-o-matic out-of-source
 
 DESCRIPTION="GnuPG Made Easy is a library for making GnuPG easier to use"
 HOMEPAGE="https://www.gnupg.org/related_software/gpgme"
-SRC_URI="mirror://gnupg/gpgme/${P}.tar.bz2"
+SRC_URI="https://gnupg.org/ftp/gcrypt/gpgme/${P}.tar.bz2"
 
 LICENSE="GPL-2 LGPL-2.1"
 # Please check ABI on each bump, even if SONAMEs didn't change: bug #833355
@@ -41,8 +41,6 @@ PATCHES=()
 src_prepare() {
 	default
 
-	elibtoolize
-
 	# bug #697456
 	addpredict /run/user/$(id -u)/gnupg
 
@@ -61,6 +59,8 @@ src_prepare() {
 my_src_configure() {
 	# bug #847955
 	append-lfs-flags
+	filter-flags '-L/usr/lib64'
+	append-ldflags '-L/usr/local/usr/lib64'
 
 	local languages=(
 		$(usev common-lisp 'cl')
@@ -70,7 +70,7 @@ my_src_configure() {
 		$(use test || echo "--disable-gpgconf-test --disable-gpg-test --disable-gpgsm-test --disable-g13-test")
 		--enable-languages="${languages[*]}"
 		$(use_enable static-libs static)
-		GPGRT_CONFIG="${ESYSROOT}/usr/bin/${CHOST}-gpgrt-config"
+		GPGRT_CONFIG="${ESYSROOT}/usr/bin/gpgrt-config"
 	)
 
 	ECONF_SOURCE="${S}" econf "${myeconfargs[@]}"

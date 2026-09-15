@@ -194,15 +194,15 @@ _meson_create_cross_file() {
 
 	[built-in options]
 	c_args = $(_meson_env_array "${CFLAGS} ${CPPFLAGS}")
-	c_link_args = $(_meson_env_array "${CFLAGS} ${LDFLAGS}")
+	c_link_args = $(_meson_env_array "${CFLAGS} ${LDFLAGS} -Wl,-rpath-link,/usr/lib64")
 	cpp_args = $(_meson_env_array "${CXXFLAGS} ${CPPFLAGS}")
-	cpp_link_args = $(_meson_env_array "${CXXFLAGS} ${LDFLAGS}")
+	cpp_link_args = $(_meson_env_array "${CXXFLAGS} ${LDFLAGS} -Wl,-rpath-link,/usr/lib64")
 	fortran_args = $(_meson_env_array "${FCFLAGS}")
-	fortran_link_args = $(_meson_env_array "${FCFLAGS} ${LDFLAGS}")
+	fortran_link_args = $(_meson_env_array "${FCFLAGS} ${LDFLAGS} -Wl,-rpath-link,/usr/lib64")
 	objc_args = $(_meson_env_array "${OBJCFLAGS} ${CPPFLAGS}")
-	objc_link_args = $(_meson_env_array "${OBJCFLAGS} ${LDFLAGS}")
+	objc_link_args = $(_meson_env_array "${OBJCFLAGS} ${LDFLAGS} -Wl,-rpath-link,/usr/lib64")
 	objcpp_args = $(_meson_env_array "${OBJCXXFLAGS} ${CPPFLAGS}")
-	objcpp_link_args = $(_meson_env_array "${OBJCXXFLAGS} ${LDFLAGS}")
+	objcpp_link_args = $(_meson_env_array "${OBJCXXFLAGS} ${LDFLAGS} -Wl,-rpath-link,/usr/lib64")
 
 	[properties]
 	needs_exe_wrapper = true
@@ -249,15 +249,15 @@ _meson_create_native_file() {
 
 	[built-in options]
 	c_args = $(_meson_env_array "${BUILD_CFLAGS} ${BUILD_CPPFLAGS}")
-	c_link_args = $(_meson_env_array "${BUILD_CFLAGS} ${BUILD_LDFLAGS}")
+	c_link_args = $(_meson_env_array "${BUILD_CFLAGS} ${BUILD_LDFLAGS} -Wl,-rpath-link,/usr/lib64")
 	cpp_args = $(_meson_env_array "${BUILD_CXXFLAGS} ${BUILD_CPPFLAGS}")
-	cpp_link_args = $(_meson_env_array "${BUILD_CXXFLAGS} ${BUILD_LDFLAGS}")
+	cpp_link_args = $(_meson_env_array "${BUILD_CXXFLAGS} ${BUILD_LDFLAGS} -Wl,-rpath-link,/usr/lib64")
 	fortran_args = $(_meson_env_array "${BUILD_FCFLAGS}")
-	fortran_link_args = $(_meson_env_array "${BUILD_FCFLAGS} ${BUILD_LDFLAGS}")
+	fortran_link_args = $(_meson_env_array "${BUILD_FCFLAGS} ${BUILD_LDFLAGS} -Wl,-rpath-link,/usr/lib64")
 	objc_args = $(_meson_env_array "${BUILD_OBJCFLAGS} ${BUILD_CPPFLAGS}")
-	objc_link_args = $(_meson_env_array "${BUILD_OBJCFLAGS} ${BUILD_LDFLAGS}")
+	objc_link_args = $(_meson_env_array "${BUILD_OBJCFLAGS} ${BUILD_LDFLAGS} -Wl,-rpath-link,/usr/lib64")
 	objcpp_args = $(_meson_env_array "${BUILD_OBJCXXFLAGS} ${BUILD_CPPFLAGS}")
-	objcpp_link_args = $(_meson_env_array "${BUILD_OBJCXXFLAGS} ${BUILD_LDFLAGS}")
+	objcpp_link_args = $(_meson_env_array "${BUILD_OBJCXXFLAGS} ${BUILD_LDFLAGS} -Wl,-rpath-link,/usr/lib64")
 
 	[properties]
 	needs_exe_wrapper = false
@@ -342,7 +342,7 @@ meson_src_configure() {
 		--sysconfdir "${EPREFIX}/etc"
 		--wrap-mode nodownload
 		--build.pkg-config-path "${BUILD_PKG_CONFIG_PATH}${BUILD_PKG_CONFIG_PATH:+:}${EPREFIX}/usr/share/pkgconfig"
-		--pkg-config-path "${PKG_CONFIG_PATH}${PKG_CONFIG_PATH:+:}${EPREFIX}/usr/share/pkgconfig"
+		--pkg-config-path "${PKG_CONFIG_PATH}${PKG_CONFIG_PATH:+:}/usr/local/lib64/pkgconfig:/usr/local/usr/lib64/pkgconfig:/usr/lib64/pkgconfig:${EPREFIX}/usr/share/pkgconfig"
 		--native-file "$(_meson_create_native_file)"
 	)
 

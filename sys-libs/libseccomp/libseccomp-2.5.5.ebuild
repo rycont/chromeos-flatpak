@@ -30,5 +30,5 @@ src_test() {
 src_install() {
 	emake DESTDIR="${D}" install
 	docinto /usr/share/doc/${PF}
-	dodoc AUTHORS ChangeLog.txt README.md || die
+	dodoc README.md || die
 }
