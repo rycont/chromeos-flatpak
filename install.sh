@@ -180,16 +180,22 @@ else
 	run_root "$TEE" -a "$make_conf" >/dev/null <<<"$binhost_value"
 fi
 
-# ChromiumOS publishes the common index with a gs:// BASE_URI, while the
-# developer sysroot only has curl. Cache that pinned index locally with the
-# equivalent HTTPS bucket URI before Portage reads it.
-common_packages_cache=/usr/local/var/cache/edb/binhost/commondatastorage.googleapis.com/chromeos-prebuilt/board/arm64-generic/postsubmit-R156-16821.0.0-87474-8670646292013436097/packages/Packages
-run_root "$INSTALL" -d -m 0755 "${common_packages_cache%/*}"
-run_root "$CURL" -fsSL --retry 3 -o "$common_packages_cache" \
-	"$COMMON_BINHOST/Packages"
-run_root "$SED" -i \
-	's#^URI: gs://chromeos-prebuilt$#URI: https://commondatastorage.googleapis.com/chromeos-prebuilt#' \
-	"$common_packages_cache"
+# ChromiumOS publishes the common index with a gs:// BASE_URI, while this
+# developer sysroot only has curl. Translate that bucket URI inside the old
+# Portage binhost reader so index refreshes cannot restore the unsupported URI.
+while IFS= read -r bintree; do
+	[ -n "$bintree" ] || continue
+	if ! run_root "$GREP" -qF \
+		'remote_base_uri = "https://commondatastorage.googleapis.com/chromeos-prebuilt"' \
+		"$bintree"; then
+		run_root "$SED" -i '/remote_base_uri = pkgindex.header.get("URI", base_url)/a\
+				if remote_base_uri == "gs://chromeos-prebuilt":\
+					remote_base_uri = "https://commondatastorage.googleapis.com/chromeos-prebuilt"' \
+			"$bintree"
+	fi
+done < <("$FIND" /usr/local/lib /usr/local/lib64 /usr/local/usr/lib \
+	/usr/local/usr/lib64 -type f -path '*/portage/dbapi/bintree.py' \
+	-print 2>/dev/null)
 
 echo "chromeos-flatpak: installing the ChromeOS GLib :2 binary"
 run_root env \
