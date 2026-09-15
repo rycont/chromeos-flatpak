@@ -1,0 +1,4 @@
+sys-apps/xdg-desktop-portal -flatpak -geolocation -gstreamer -seccomp -systemd -test -udev
+sys-apps/xdg-desktop-portal-gtk X wayland
+sys-fs/fuse suid
+x11-libs/gtk+ X wayland

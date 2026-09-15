@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+  <longdescription>
+    Minimal PipeWire client library used to build the ChromeOS desktop portal.
+    The host profile does not enable a PipeWire service or session manager.
+  </longdescription>
+  <upstream>
+    <remote-id type="gitlab">pipewire/pipewire</remote-id>
+  </upstream>
+</pkgmetadata>

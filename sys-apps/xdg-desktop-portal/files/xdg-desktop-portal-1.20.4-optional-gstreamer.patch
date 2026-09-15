@@ -1,0 +1,51 @@
+https://bugs.gentoo.org/951611
+https://bugs.gentoo.org/951609
+
+Avoid requiring GStreamer when the sandboxed sound validator is disabled.
+--- a/meson.build
++++ b/meson.build
+@@ -120,7 +120,7 @@
+ json_glib_dep = dependency('json-glib-1.0')
+ fuse3_dep = dependency('fuse3', version: '>= 3.10.0')
+ gdk_pixbuf_dep = dependency('gdk-pixbuf-2.0')
+-gst_pbutils_dep = dependency('gstreamer-pbutils-1.0')
++gst_pbutils_dep = dependency('gstreamer-pbutils-1.0', required: get_option('sandboxed-sound-validation'))
+ geoclue_dep = dependency(
+   'libgeoclue-2.0',
+   version: '>= 2.5.2',
+@@ -132,8 +132,8 @@
+ umockdev_dep = dependency('umockdev-1.0', required: get_option('tests'))
+ libglnx_dep = libglnx.get_variable('libglnx_dep')
+-
+-gst_inspect = find_program('gst-inspect-1.0', required: false)
+-if gst_inspect.found()
++gst_inspect = find_program('gst-inspect-1.0', required: get_option('sandboxed-sound-validation'))
++have_gst_inspect = gst_inspect.found()
++if have_gst_inspect
+   have_wav_parse = run_command(
+     gst_inspect, 'wavparse', '--exists',
+     check: false,
+@@ -236,1 +236,1 @@
+-  .require(have_wav_parse,
++  .require(have_wav_parse or not get_option('sandboxed-sound-validation').allowed(),
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -217,8 +217,10 @@
+-xdp_validate_sound = executable(
+-  'xdg-desktop-portal-validate-sound',
+-  'validate-sound.c',
+-  dependencies: [gst_pbutils_dep],
+-  c_args: validate_sound_c_args,
+-  install: true,
+-  install_dir: libexecdir,
+-)
++if gst_inspect.found()
++  xdp_validate_sound = executable(
++    'xdg-desktop-portal-validate-sound',
++    'validate-sound.c',
++    dependencies: [gst_pbutils_dep],
++    c_args: validate_sound_c_args,
++    install: true,
++    install_dir: libexecdir,
++  )
++endif

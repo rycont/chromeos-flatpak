@@ -20,8 +20,8 @@ The current stable profile provides:
 - FUSE 3 mounting support
 
 The validated configuration is intentionally user-scope oriented. Flatpak's
-system helper, polkit, systemd integration, and desktop portal stack are not
-enabled yet. Therefore the supported workflow is:
+system helper, polkit, and systemd integration are not enabled. Therefore the
+base supported workflow is:
 
 ```sh
 flatpak --user remote-add --if-not-exists \
@@ -30,9 +30,27 @@ flatpak --user install flathub APP_ID
 flatpak --user run APP_ID
 ```
 
-Desktop portals are planned separately. The Flatpak package itself may still
-install its internal `flatpak-portal`; that is different from
-`xdg-desktop-portal` and a desktop-specific backend.
+An optional GTK desktop-portal profile is included, but it is not part of the
+base installation. It provides portal dialogs through GTK; it does not expose
+ChromeOS's native Files picker or Ash permission UI. To install it, copy the
+additional USE configuration and emerge the backend:
+
+```sh
+cp /usr/local/portage/flatpak-chromeos/config/package.use/flatpak-chromeos-portal \
+  /usr/local/etc/portage/package.use/
+/usr/local/bin/emerge --ignore-default-opts \
+  --config-root=/usr/local --root=/usr/local \
+  --usepkg --getbinpkg --verbose \
+  sys-apps/xdg-desktop-portal-gtk
+```
+
+The portal package uses D-Bus activation and does not enable systemd. The
+overlay's PipeWire package supplies the client library needed to build the
+portal; it does not start a PipeWire daemon or replace ChromeOS's CRAS audio
+stack. A user D-Bus session and a graphical environment are still required.
+
+The Flatpak package itself may also install its internal `flatpak-portal`; that
+is different from `xdg-desktop-portal` and a desktop-specific backend.
 
 ## Portage configuration
 
