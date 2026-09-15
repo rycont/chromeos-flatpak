@@ -5,8 +5,9 @@ into a ChromeOS `dev_install` sysroot. It targets the ChromeOS host itself and
 does not require Crostini, the Linux VM, or another container.
 
 The validated target is `kukui` on ARM64. ChromeOS's package repository stays
-the base repository; this overlay adds only packages and build fixes that are
-needed by Flatpak. It is not a replacement for the Gentoo repository.
+the base repository; this overlay adds only packages, build fixes, and the
+small compatible eclass set needed by Flatpak. It does not require connecting
+a general Gentoo package repository.
 
 ## Current scope
 
@@ -52,11 +53,29 @@ stack. A user D-Bus session and a graphical environment are still required.
 The Flatpak package itself may also install its internal `flatpak-portal`; that
 is different from `xdg-desktop-portal` and a desktop-specific backend.
 
+## One-command installation
+
+On a Chromebook with an empty `/usr/local`, the complete installation can be
+started with one command:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rycont/chromeos-flatpak/main/install.sh | bash
+```
+
+The script takes no arguments. It requires passwordless `sudo`, runs
+`dev_install` for the `kukui` developer sysroot, installs Flatpak and the GTK
+portal, and performs basic file checks. For safety, it refuses to run when
+`/usr/local` already contains anything; remove the existing developer sysroot
+with `sudo dev_install --uninstall` and rerun it if necessary. It never empties
+an existing `/usr/local` itself.
+
 ## Portage configuration
 
-Clone this repository to a persistent path on the Chromebook and install the
-two example configuration files. If you use another path, adjust `location`
-in `config/repos.conf/flatpak-chromeos.conf` first:
+For manual or incremental installation, clone this repository to a persistent
+path on the Chromebook and install the two example configuration files. The
+overlay includes its compatible eclasses, so a separate Gentoo repository is
+not needed. If you use another path, adjust `location` in
+`config/repos.conf/flatpak-chromeos.conf` first:
 
 ```sh
 install -d /usr/local/portage
