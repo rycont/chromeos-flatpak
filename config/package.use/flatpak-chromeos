@@ -4,5 +4,5 @@ dev-libs/glib -mime xattr
 dev-libs/json-glib -introspection
 gnome-base/gsettings-desktop-schemas -introspection
 x11-libs/gdk-pixbuf -introspection
-sys-apps/bubblewrap -selinux -suid
+sys-apps/bubblewrap -selinux suid
 sys-apps/xdg-dbus-proxy -test

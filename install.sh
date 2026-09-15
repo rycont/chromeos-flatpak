@@ -10,6 +10,11 @@ BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board/k
 COMMON_BINHOST="https://commondatastorage.googleapis.com/chromeos-prebuilt/board/arm64-generic/postsubmit-R156-16821.0.0-87474-8670646292013436097/packages"
 REPO_API="https://api.github.com/repos/rycont/chromeos-flatpak/commits/main"
 OVERLAY="/usr/local/portage/flatpak-chromeos"
+BUNDLE_RELEASE="r152-kukui-16765.41.0"
+BUNDLE_NAME="chromeos-flatpak-kukui-r152-arm64.tar.xz"
+BUNDLE_URL="https://github.com/rycont/chromeos-flatpak/releases/download/${BUNDLE_RELEASE}/${BUNDLE_NAME}"
+BUNDLE_SHA256_URL="${BUNDLE_URL}.sha256"
+FLATPAK_USER_DIR="/usr/local/var/lib/flatpak-user"
 
 SUDO="/usr/bin/sudo"
 CURL="/usr/bin/curl"
@@ -19,12 +24,17 @@ ID="/usr/bin/id"
 INSTALL="/usr/bin/install"
 LN="/bin/ln"
 CP="/bin/cp"
+CHMOD="/bin/chmod"
+CHOWN="/bin/chown"
 MKDTEMP="/usr/bin/mktemp"
 MV="/bin/mv"
 RM="/bin/rm"
 SED="/bin/sed"
 TAR="/bin/tar"
 TEE="/usr/bin/tee"
+LDCONFIG="/sbin/ldconfig"
+SHA256SUM="/usr/bin/sha256sum"
+LSB_RELEASE="/etc/lsb-release"
 
 die() {
 	echo "chromeos-flatpak: $*" >&2
@@ -32,9 +42,20 @@ die() {
 }
 
 for tool in "$SUDO" "$CURL" "$FIND" "$GREP" "$ID" "$INSTALL" "$LN" "$CP" \
-	"$MKDTEMP" "$MV" "$RM" "$SED" "$TAR" "$TEE"; do
+	"$CHMOD" "$CHOWN" "$MKDTEMP" "$MV" "$RM" "$SED" "$TAR" "$TEE" \
+	"$LDCONFIG" "$SHA256SUM"; do
 	[ -x "$tool" ] || die "required host tool is missing: $tool"
 done
+
+[ -r "$LSB_RELEASE" ] || die "ChromeOS release information is missing"
+chromebook_board="$($SED -n 's/^CHROMEOS_RELEASE_BOARD=//p' "$LSB_RELEASE")"
+chromebook_version="$($SED -n 's/^CHROMEOS_RELEASE_VERSION=//p' "$LSB_RELEASE")"
+case "$chromebook_board" in
+	kukui*) ;;
+	*) die "this bundle targets kukui, not board $chromebook_board" ;;
+esac
+[ "$chromebook_version" = "16765.41.0" ] || die \
+	"this bundle targets ChromeOS 16765.41.0, not $chromebook_version"
 
 if [ "$($ID -u)" -eq 0 ]; then
 	SUDO_CMD=()
@@ -75,12 +96,23 @@ install_runtime_profile() {
 export PATH="/usr/local/bin:/usr/local/sbin${PATH:+:$PATH}"
 export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 export FLATPAK_SYSTEM_DIR="${FLATPAK_SYSTEM_DIR:-/usr/local/var/lib/flatpak}"
+export FLATPAK_USER_DIR="${FLATPAK_USER_DIR:-/usr/local/var/lib/flatpak-user}"
 
 for flatpak_profile in /usr/local/etc/profile.d/*.sh; do
 	[ -r "$flatpak_profile" ] && . "$flatpak_profile"
 done
 unset flatpak_profile
 EOF
+}
+
+configure_flatpak_user_dir() {
+	local chronos_uid chronos_gid
+	chronos_uid="$($ID -u chronos 2>/dev/null || true)"
+	chronos_gid="$($ID -g chronos 2>/dev/null || true)"
+	[ -n "$chronos_uid" ] && [ -n "$chronos_gid" ] || die \
+		"the chronos account was not found"
+	run_root "$INSTALL" -d -m 0700 "$FLATPAK_USER_DIR"
+	run_root "$CHOWN" "$chronos_uid:$chronos_gid" "$FLATPAK_USER_DIR"
 }
 
 configure_portage_make_conf() {
@@ -229,6 +261,7 @@ run_root "$INSTALL" -d -m 0755 "$provided_dir"
 run_root "$TEE" "$provided_dir/chromeos-flatpak" >/dev/null <<'EOF'
 virtual/libiconv-0-r1
 virtual/libintl-0-r2
+sys-libs/libseccomp-2.5.5
 EOF
 
 # The old Portage shipped by this ChromeOS release filters PORTAGE_BINHOST out
@@ -248,6 +281,7 @@ done < <("$FIND" /usr/local/lib /usr/local/lib64 /usr/local/usr/lib \
 # make.conf wins over inherited values in this old Portage. Configure it
 # before the first binary fetch as dev_install may preserve the file.
 configure_portage_make_conf
+configure_flatpak_user_dir
 install_runtime_profile
 
 # ChromiumOS publishes the common index with a gs:// BASE_URI, while this
@@ -284,22 +318,37 @@ run_root env \
 	--getbinpkg --usepkgonly --binpkg-respect-use=n --nodeps --verbose \
 	=dev-libs/glib-2.76.4-r4
 
-echo "chromeos-flatpak: emerging Flatpak and the core desktop portal"
-run_root env \
-	PORTAGE_CONFIGROOT=/usr/local \
-	ROOT=/usr/local \
-	PORTAGE_BINHOST="$BINHOST $COMMON_BINHOST" \
-	PORTDIR_OVERLAY="$OVERLAY" \
-	LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib \
-	/usr/local/bin/emerge --ignore-default-opts \
-	--config-root=/usr/local --root=/usr/local \
-	--getbinpkg --usepkg --binpkg-respect-use=n --binpkg-changed-deps=n --verbose \
-	sys-apps/flatpak sys-apps/xdg-desktop-portal
+echo "chromeos-flatpak: downloading the tested Flatpak/portal runtime bundle"
+"$CURL" -fsSL --retry 3 -o "$workdir/$BUNDLE_NAME" "$BUNDLE_URL"
+"$CURL" -fsSL --retry 3 -o "$workdir/$BUNDLE_NAME.sha256" "$BUNDLE_SHA256_URL"
+expected_sha256="$($SED -n \
+	"s/^\\([0-9a-f]\\{64\\}\\)[[:space:]][[:space:]]${BUNDLE_NAME}$/\\1/p" \
+	"$workdir/$BUNDLE_NAME.sha256")"
+[ -n "$expected_sha256" ] || die "the bundle checksum file is invalid"
+actual_sha256="$($SHA256SUM "$workdir/$BUNDLE_NAME" | "$SED" 's/[[:space:]].*$//')"
+[ "$actual_sha256" = "$expected_sha256" ] || die "the runtime bundle checksum does not match"
+
+# The bundle is flattened for /usr/local. Do not preserve archive ownership or
+# modes: the bwrap setuid bit is applied explicitly below after extraction.
+run_root "$TAR" -xJf "$workdir/$BUNDLE_NAME" -C /usr/local \
+	--no-same-owner --no-same-permissions
+run_root "$CHMOD" 4755 /usr/local/bin/bwrap
+
+# Portage may install shared libraries below /usr/local/lib64 while the
+# immutable host loader cache still only knows the previous sysroot contents.
+# Refresh it before the post-install executable checks and future shells.
+run_root "$LDCONFIG"
 
 patch_runtime_paths
 
 run_root test -x /usr/local/bin/flatpak
 run_root test -x /usr/local/libexec/xdg-desktop-portal
 run_root test -f /usr/local/share/dbus-1/services/org.freedesktop.portal.Desktop.service
-echo "chromeos-flatpak: Flatpak and the core desktop portal were installed"
-echo "chromeos-flatpak: run 'flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo' next"
+run_root test -u /usr/local/bin/bwrap
+if [ "$($ID -u)" -eq 0 ]; then
+	run_root /usr/local/bin/bwrap --ro-bind / / /bin/true
+else
+	/usr/local/bin/bwrap --ro-bind / / /bin/true
+fi
+echo "chromeos-flatpak: Flatpak, portal, and the tested bwrap sandbox were installed"
+echo "chromeos-flatpak: source /usr/local/etc/profile, then use flatpak --user or flatpak --system"

@@ -16,15 +16,22 @@ The current stable profile provides:
 - Flatpak 1.16.6
 - OSTree 2025.7 with GPG verification
 - AppStream 1.0.6 metadata support
-- Bubblewrap 0.11.2
+- Bubblewrap 0.11.2 built with its setuid sandbox helper
 - xdg-dbus-proxy 0.1.7
 - FUSE 3 mounting support
 
-The validated configuration is intentionally user-scope oriented. Flatpak's
-system helper, polkit, and systemd integration are not enabled. Therefore the
-base supported workflow is:
+ChromeOS mounts `/home/chronos/user` with `noexec`. A normal Flatpak user
+installation there can download successfully but cannot execute its runtime.
+The installer therefore puts Flatpak's user repository in the executable
+`/usr/local/var/lib/flatpak-user` path and makes it owned by `chronos`. The
+system repository is `/usr/local/var/lib/flatpak`. Both scopes use the tested
+setuid `bwrap` helper; the helper is required because ChromeOS blocks the
+unprivileged mount setup used by stock bubblewrap.
+
+After opening a new host shell, the normal per-user workflow is:
 
 ```sh
+source /usr/local/etc/profile
 flatpak --user remote-add --if-not-exists \
   flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak --user install flathub APP_ID
@@ -44,8 +51,8 @@ sudo -n flatpak --system install flathub APP_ID
 
 The base installation also includes the core `xdg-desktop-portal` service and
 the small PipeWire client ABI it needs. It uses D-Bus activation and does not
-enable systemd. This is the portal dispatcher and document portal; it does not
-provide a ChromeOS-native Files picker by itself.
+enable systemd or polkit. This is the portal dispatcher and document portal;
+it does not provide a ChromeOS-native Files picker by itself.
 
 On the validated host, D-Bus successfully auto-activates
 `org.freedesktop.portal.Desktop`, `org.freedesktop.portal.Documents`, and
@@ -65,6 +72,11 @@ overlay's PipeWire package supplies the client library needed to build the
 portal; it does not start a PipeWire daemon or replace ChromeOS's CRAS audio
 stack. A user D-Bus session and a graphical environment are still required.
 
+The setuid bubblewrap helper is a deliberate security trade-off. It is
+installed root-owned with mode `4755`, and is only used to provide the mount
+namespace operations that the ChromeOS host otherwise denies. Do not copy this
+bundle to another distribution without reviewing that trust boundary.
+
 The Flatpak package itself may also install its internal `flatpak-portal`; that
 is different from `xdg-desktop-portal` and a desktop-specific backend.
 
@@ -78,17 +90,21 @@ curl -fsSL https://raw.githubusercontent.com/rycont/chromeos-flatpak/main/instal
 ```
 
 The script takes no arguments. It requires passwordless `sudo`, runs
-`dev_install` for the `kukui` developer sysroot, installs Flatpak and the core
-desktop portal, and performs basic file checks. It resolves the latest `main`
-commit through GitHub's public API with `curl`; the target Chromebook does not
-need the `gh` CLI. For safety, it refuses to run when
+`dev_install` for the pinned `kukui` developer sysroot, installs the matching
+prebuilt Flatpak/portal runtime bundle, verifies its SHA-256 checksum, and
+performs a non-root bubblewrap smoke test. The bundle is built for ARM64
+`kukui` ChromeOS `16765.41.0`; the script refuses other ChromeOS versions.
+It resolves the latest `main` commit through GitHub's public API with `curl`;
+the target Chromebook does not need the `gh` CLI. For safety, it refuses to run when
 `/usr/local` already contains anything; remove the existing developer sysroot
 with `sudo dev_install --uninstall` and rerun it if necessary. It never empties
 an existing `/usr/local` itself.
 
 The pinned build fixes the ChromeOS developer sysroot's missing target-prefix
-metadata and old Portage environment propagation. It does not add the general
-Gentoo repository, and it does not overwrite the immutable ChromeOS root.
+metadata and old Portage environment propagation. The runtime bundle avoids
+trying to compile the complete Flatpak dependency graph on the Chromebook. It
+does not add the general Gentoo repository, and it does not overwrite the
+immutable ChromeOS root.
 
 If the command is launched from a controlling PC with an authenticated `gh`,
 resolve the current `main` SHA there and stream the exact revision to the
@@ -144,8 +160,11 @@ export PORTAGE_BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-in
 ```
 
 The board's binary repository can satisfy unchanged ChromeOS dependencies;
-overlay packages are built locally. After installation, start a new shell or
-run `source /etc/profile`, then verify with `flatpak --version`.
+overlay packages are built locally when a complete compatible SDK/toolchain is
+available. The one-command Chromebook path uses the tested release bundle
+instead of compiling this transaction on the device. After either path,
+start a new shell or run `source /usr/local/etc/profile`, then verify with
+`flatpak --version`.
 
 ## SDK validation
 

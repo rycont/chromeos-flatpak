@@ -113,7 +113,7 @@ src_configure() {
 	local emesonargs=(
 		--localstatedir="${EPREFIX}"/var
 		-Ddbus_config_dir=/usr/share/dbus-1/system.d
-		-Dsystem_bubblewrap=bwrap
+		-Dsystem_bubblewrap=/usr/local/bin/bwrap
 		-Dsystem_dbus_proxy=xdg-dbus-proxy
 		-Dsystem_fusermount=/usr/bin/fusermount3
 		-Dtmpfilesdir=/usr/lib/tmpfiles.d
