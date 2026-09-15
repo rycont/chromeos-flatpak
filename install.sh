@@ -198,6 +198,11 @@ done < <("$FIND" /usr/local/lib /usr/local/lib64 /usr/local/usr/lib \
 	-print 2>/dev/null)
 
 echo "chromeos-flatpak: installing the ChromeOS GLib :2 binary"
+# The pinned GLib is a compatibility binary from the ChromeOS common binhost.
+# Its recorded build dependencies (autoconf-archive, compiler tools, etc.) are
+# not needed to install that binary and can collide with the developer sysroot.
+# Install exactly this package and let the later Flatpak transaction resolve
+# normal runtime dependencies.
 run_root env \
 	PORTAGE_CONFIGROOT=/usr/local \
 	ROOT=/usr/local \
@@ -206,7 +211,7 @@ run_root env \
 	LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib \
 	/usr/local/bin/emerge --ignore-default-opts \
 	--config-root=/usr/local --root=/usr/local \
-	--getbinpkg --usepkgonly --binpkg-respect-use=n --verbose \
+	--getbinpkg --usepkgonly --binpkg-respect-use=n --nodeps --verbose \
 	=dev-libs/glib-2.76.4-r4
 
 echo "chromeos-flatpak: emerging Flatpak and the core desktop portal"
