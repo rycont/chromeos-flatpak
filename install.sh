@@ -153,7 +153,7 @@ while IFS= read -r provided_file; do
 	if run_root "$GREP" -q '^dev-libs/glib-' "$provided_file"; then
 		run_root "$SED" -i '/^dev-libs\/glib-/d' "$provided_file"
 	fi
-done < <("$FIND" /usr/local/etc/portage/make.profile/package.provided \
+done < <("$FIND" -L /usr/local/etc/portage/make.profile/package.provided \
 	-type f -print 2>/dev/null)
 
 # The old Portage shipped by this ChromeOS release filters PORTAGE_BINHOST out
