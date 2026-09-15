@@ -26,7 +26,6 @@ REQUIRED_USE="
 RDEPEND="
 	app-arch/xz-utils
 	dev-libs/glib:2
-	sys-fs/e2fsprogs
 	sys-fs/fuse:3=
 	virtual/zlib:=
 	archive? ( app-arch/libarchive:= )
