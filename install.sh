@@ -92,8 +92,10 @@ patch_runtime_paths() {
 install_runtime_profile() {
 	run_root "$INSTALL" -d -m 0755 /usr/local/etc/profile.d
 	run_root "$TEE" /usr/local/etc/profile >/dev/null <<'EOF'
-# ChromeOS developer sysroot runtime environment for chromeos-flatpak.
-export PATH="/usr/local/bin:/usr/local/sbin${PATH:+:$PATH}"
+# ChromeOS developer sysroot runtime environment for chromeos-flatpak. VT/SSH
+# shells can start with only /opt/bin, so include the regular host utilities
+# explicitly instead of relying on the inherited PATH.
+export PATH="/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/bin${PATH:+:$PATH}"
 export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 export FLATPAK_SYSTEM_DIR="${FLATPAK_SYSTEM_DIR:-/usr/local/var/lib/flatpak}"
 export FLATPAK_USER_DIR="${FLATPAK_USER_DIR:-/usr/local/var/lib/flatpak-user}"
