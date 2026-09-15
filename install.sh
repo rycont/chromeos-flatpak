@@ -7,6 +7,7 @@ set -euo pipefail
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/bin"
 
 BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board/kukui/16765.41.0/packages"
+COMMON_BINHOST="https://commondatastorage.googleapis.com/chromeos-prebuilt/board/arm64-generic/postsubmit-R156-16821.0.0-87474-8670646292013436097/packages"
 REPO_API="https://api.github.com/repos/rycont/chromeos-flatpak/commits/main"
 OVERLAY="/usr/local/portage/flatpak-chromeos"
 
@@ -140,11 +141,35 @@ run_root "$CP" -f "$OVERLAY/config/package.use/flatpak-chromeos-portal" \
 run_root "$CP" -f "$OVERLAY/config/package.accept_keywords/flatpak-chromeos" \
 	/usr/local/etc/portage/package.accept_keywords/flatpak-chromeos
 
+# The ChromeOS developer profile lists the host's GLib as package.provided,
+# but package.provided cannot express its real SLOT=2.  Dependencies such as
+# gdk-pixbuf:2 and xdg-desktop-portal therefore fail to see the host library.
+# Remove only that stale provision so the matching ChromeOS GLib binary can be
+# registered in the target sysroot.
+for provided_file in $(run_root "$FIND" \
+	/usr/local/etc/portage/make.profile/package.provided -type f -print 2>/dev/null); do
+	if run_root "$GREP" -q '^dev-libs/glib-' "$provided_file"; then
+		run_root "$SED" -i '/^dev-libs\/glib-/d' "$provided_file"
+	fi
+done
+
+echo "chromeos-flatpak: installing the ChromeOS GLib :2 binary"
+run_root env \
+	PORTAGE_CONFIGROOT=/usr/local \
+	ROOT=/usr/local \
+	PORTAGE_BINHOST="$COMMON_BINHOST" \
+	PORTDIR_OVERLAY="$OVERLAY" \
+	LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib \
+	/usr/local/bin/emerge --ignore-default-opts \
+	--config-root=/usr/local --root=/usr/local \
+	--getbinpkg --usepkgonly --binpkg-respect-use=n --verbose \
+	=dev-libs/glib-2.76.4-r4
+
 echo "chromeos-flatpak: emerging Flatpak and the core desktop portal"
 run_root env \
 	PORTAGE_CONFIGROOT=/usr/local \
 	ROOT=/usr/local \
-	PORTAGE_BINHOST="$BINHOST" \
+	PORTAGE_BINHOST="$BINHOST $COMMON_BINHOST" \
 	PORTDIR_OVERLAY="$OVERLAY" \
 	LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib \
 	/usr/local/bin/emerge --ignore-default-opts \
