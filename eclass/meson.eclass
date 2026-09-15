@@ -56,7 +56,7 @@ EXPORT_FUNCTIONS src_configure src_compile src_test src_install
 
 _MESON_DEPEND=">=dev-build/meson-0.58.2-r1
 	>=dev-util/ninja-1.8.2
-	dev-util/meson-format-array
+	dev-build/meson-format-array
 "
 
 if [[ ${EAPI} == 6 ]]; then
