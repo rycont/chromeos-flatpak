@@ -4,6 +4,8 @@
 EAPI=7
 PYTHON_COMPAT=( python3_11 )
 
+# Target builds do not run ChromiumOS platform2 tests; avoid their host runner deps.
+PLATFORM2_TEST_DEPS=test-only
 inherit linux-info meson python-any-r1 systemd tmpfiles
 
 # The SDK cannot execute ARM64 target binaries while configuring the

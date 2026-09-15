@@ -149,7 +149,7 @@ run_root env \
 	PORTDIR_OVERLAY="$OVERLAY" \
 	LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib \
 	/usr/local/bin/emerge --ignore-default-opts \
-	--getbinpkg --usepkg --verbose \
+	--getbinpkg --usepkg --binpkg-respect-use=n --verbose \
 	sys-apps/flatpak sys-apps/xdg-desktop-portal
 
 run_root test -x /usr/local/bin/flatpak

@@ -3,6 +3,8 @@
 
 EAPI=7
 
+# Target builds do not run ChromiumOS platform2 tests; avoid their host runner deps.
+PLATFORM2_TEST_DEPS=test-only
 inherit gnome.org gnome2-utils meson xdg
 
 DESCRIPTION="Collection of GSettings schemas for GNOME desktop"

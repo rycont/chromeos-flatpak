@@ -2,6 +2,8 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=7
+# Target builds do not run ChromiumOS platform2 tests; avoid their host runner deps.
+PLATFORM2_TEST_DEPS=test-only
 inherit bash-completion-r1 gnome.org gnome2-utils meson systemd virtualx xdg
 
 DESCRIPTION="Simple low-level configuration system"

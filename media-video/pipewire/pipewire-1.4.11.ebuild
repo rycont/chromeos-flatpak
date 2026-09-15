@@ -3,6 +3,8 @@
 
 EAPI=7
 
+# Target builds do not run ChromiumOS platform2 tests; avoid their host runner deps.
+PLATFORM2_TEST_DEPS=test-only
 inherit meson
 
 # The ChromiumOS SDK cross-build cannot execute ARM64 test binaries while

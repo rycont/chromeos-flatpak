@@ -3,6 +3,8 @@
 
 EAPI=7
 
+# Target builds do not run ChromiumOS platform2 tests; avoid their host runner deps.
+PLATFORM2_TEST_DEPS=test-only
 inherit bash-completion-r1 linux-info meson
 
 DESCRIPTION="Unprivileged sandboxing tool, namespaces-powered chroot-like solution"
