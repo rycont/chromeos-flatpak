@@ -170,11 +170,21 @@ done < <("$FIND" /usr/local/lib /usr/local/lib64 /usr/local/usr/lib \
 	-path '*/portage/package/ebuild/_config/special_env_vars.py' \
 	-print 2>/dev/null)
 
+# make.conf wins over an inherited PORTAGE_BINHOST environment variable in
+# this old Portage, so write the complete binhost list into the active config.
+make_conf=/usr/local/etc/portage/make.conf
+binhost_value="PORTAGE_BINHOST=\"$BINHOST $COMMON_BINHOST\""
+if run_root "$GREP" -q '^PORTAGE_BINHOST=' "$make_conf"; then
+	run_root "$SED" -i "s#^PORTAGE_BINHOST=.*#$binhost_value#" "$make_conf"
+else
+	run_root "$TEE" -a "$make_conf" >/dev/null <<<"$binhost_value"
+fi
+
 echo "chromeos-flatpak: installing the ChromeOS GLib :2 binary"
 run_root env \
 	PORTAGE_CONFIGROOT=/usr/local \
 	ROOT=/usr/local \
-	PORTAGE_BINHOST="$COMMON_BINHOST" \
+	PORTAGE_BINHOST="$BINHOST $COMMON_BINHOST" \
 	PORTDIR_OVERLAY="$OVERLAY" \
 	LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib \
 	/usr/local/bin/emerge --ignore-default-opts \
