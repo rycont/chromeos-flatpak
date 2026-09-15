@@ -16,7 +16,7 @@ S="${WORKDIR}/lib${P}"
 LICENSE="LGPL-2+"
 SLOT="0"
 KEYWORDS="arm64"
-IUSE="archive +curl doc dracut flatpak-gpg gnutls grub +http2 introspection libmount selinux sodium ssl +soup systemd zeroconf"
+IUSE="archive +curl doc dracut flatpak-gpg gnutls grub +http2 introspection libmount selinux sodium ssl soup systemd zeroconf"
 RESTRICT="test"
 REQUIRED_USE="
 	dracut? ( systemd )
