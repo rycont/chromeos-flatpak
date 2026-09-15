@@ -56,6 +56,24 @@ fi
 workdir="$($MKDTEMP -d /tmp/chromeos-flatpak.XXXXXX)"
 trap '"$RM" -rf "$workdir"' EXIT
 
+repo_json="$workdir/repository.json"
+"$CURL" -fsSL --retry 3 \
+	-H 'Accept: application/vnd.github+json' \
+	-H 'X-GitHub-Api-Version: 2022-11-28' \
+	-o "$repo_json" "$REPO_API"
+repo_ref="$($SED -n \
+	'/^[[:space:]]*"sha":[[:space:]]*"[0-9a-f]\{40\}"/ { s/^[[:space:]]*"sha":[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p; q; }' \
+	"$repo_json")"
+[ -n "$repo_ref" ] || die "could not resolve the latest main commit"
+repo_tarball="https://github.com/rycont/chromeos-flatpak/archive/${repo_ref}.tar.gz"
+
+echo "chromeos-flatpak: downloading the self-contained overlay"
+"$CURL" -fsSL --retry 3 -o "$workdir/overlay.tar.gz" "$repo_tarball"
+"$TAR" -xzf "$workdir/overlay.tar.gz" -C "$workdir"
+overlay_source="$($FIND "$workdir" -mindepth 1 -maxdepth 1 -type d \
+	-name 'chromeos-flatpak-*' -print -quit)"
+[ -n "$overlay_source" ] || die "the overlay archive had an unexpected layout"
+
 dev_log="$workdir/dev-install.log"
 echo "chromeos-flatpak: initializing the ChromeOS developer sysroot"
 if run_root /usr/bin/dev_install --reinstall --yes --binhost="$BINHOST" \
@@ -71,17 +89,6 @@ else
 	fi
 fi
 
-repo_json="$workdir/repository.json"
-"$CURL" -fsSL --retry 3 \
-	-H 'Accept: application/vnd.github+json' \
-	-H 'X-GitHub-Api-Version: 2022-11-28' \
-	-o "$repo_json" "$REPO_API"
-repo_ref="$($SED -n \
-	'/^[[:space:]]*"sha":[[:space:]]*"[0-9a-f]\{40\}"/ { s/^[[:space:]]*"sha":[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p; q; }' \
-	"$repo_json")"
-[ -n "$repo_ref" ] || die "could not resolve the latest main commit"
-repo_tarball="https://github.com/rycont/chromeos-flatpak/archive/${repo_ref}.tar.gz"
-
 portage_init="$($FIND /usr/local/lib /usr/local/lib64 -type f \
 	-path '*/portage/__init__.py' -print -quit 2>/dev/null || true)"
 [ -n "$portage_init" ] || die "the dev_install Portage library was not found"
@@ -93,13 +100,6 @@ if ! run_root "$GREP" -q "^[[:space:]]*'PORTAGE_BINHOST',[[:space:]]*$" \
 	run_root "$SED" -i "/'PORTAGE_USERNAME',/a\\        'PORTAGE_BINHOST'," \
 		"$portage_init"
 fi
-
-echo "chromeos-flatpak: downloading the self-contained overlay"
-"$CURL" -fsSL --retry 3 -o "$workdir/overlay.tar.gz" "$repo_tarball"
-"$TAR" -xzf "$workdir/overlay.tar.gz" -C "$workdir"
-overlay_source="$($FIND "$workdir" -mindepth 1 -maxdepth 1 -type d \
-	-name 'chromeos-flatpak-*' -print -quit)"
-[ -n "$overlay_source" ] || die "the overlay archive had an unexpected layout"
 
 run_root "$INSTALL" -d -m 0755 /usr/local/portage
 run_root "$MV" "$overlay_source" "$OVERLAY"
