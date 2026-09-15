@@ -97,11 +97,15 @@ not needed. If you use another path, adjust `location` in
 install -d /usr/local/portage
 git clone --depth=1 https://github.com/rycont/chromeos-flatpak.git \
   /usr/local/portage/flatpak-chromeos
-install -d /usr/local/etc/portage/repos.conf /usr/local/etc/portage/package.use
+install -d /usr/local/etc/portage/repos.conf \
+  /usr/local/etc/portage/package.use \
+  /usr/local/etc/portage/package.accept_keywords
 cp /usr/local/portage/flatpak-chromeos/config/repos.conf/flatpak-chromeos.conf \
   /usr/local/etc/portage/repos.conf/
 cp /usr/local/portage/flatpak-chromeos/config/package.use/flatpak-chromeos \
   /usr/local/etc/portage/package.use/
+cp /usr/local/portage/flatpak-chromeos/config/package.accept_keywords/flatpak-chromeos \
+  /usr/local/etc/portage/package.accept_keywords/
 ```
 
 Then, from the ChromeOS host shell:
@@ -112,9 +116,11 @@ export PORTAGE_CONFIGROOT=/usr/local
 export ROOT=/usr/local
 export PORTDIR_OVERLAY=/usr/local/portage/flatpak-chromeos
 export LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib
+export PORTAGE_BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board/kukui/16765.41.0/packages https://commondatastorage.googleapis.com/chromeos-prebuilt/board/arm64-generic/postsubmit-R156-16821.0.0-87474-8670646292013436097/packages"
 /usr/local/bin/emerge --ignore-default-opts \
   --config-root=/usr/local --root=/usr/local \
-  --usepkg --getbinpkg --verbose sys-apps/flatpak
+  --usepkg --getbinpkg --verbose \
+  sys-apps/flatpak sys-apps/xdg-desktop-portal
 ```
 
 The board's binary repository can satisfy unchanged ChromeOS dependencies;
