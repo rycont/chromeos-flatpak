@@ -1,0 +1,4 @@
+dev-util/ostree -archive -soup -http2 -introspection -systemd -doc -dracut -grub -libmount -selinux -sodium -zeroconf curl flatpak-gpg gnutls ssl
+gnome-base/gsettings-desktop-schemas -introspection
+sys-apps/bubblewrap -selinux -suid
+sys-apps/xdg-dbus-proxy -test

@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ChromeOS Flatpak overlay <noreply@example.invalid>
+Date: Tue, 15 Sep 2026 14:12:00 +0900
+Subject: [PATCH] Do not probe target executables during cross builds
+
+Meson can report that host binaries are runnable when an exe wrapper is
+configured.  The wrapper used by the ChromeOS SDK is only suitable for test
+executables, while Flatpak's configure checks invoke target bwrap and
+xdg-dbus-proxy directly.  Do not run those probes during a cross build.
+
+---
+ meson.build | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/meson.build b/meson.build
+index 0000000..1111111 100644
+--- a/meson.build
++++ b/meson.build
+@@ -58,5 +58,8 @@ if meson.version().version_compare('>=0.55.0')
+ if meson.version().version_compare('>=0.55.0')
+-  can_run_host_binaries = meson.can_run_host_binaries()
++  can_run_host_binaries = false
++  if not meson.is_cross_build()
++    can_run_host_binaries = meson.can_run_host_binaries()
++  endif
+ else
+   can_run_host_binaries = meson.has_exe_wrapper() or not meson.is_cross_build()
+ endif
+-- 
+2.45.2

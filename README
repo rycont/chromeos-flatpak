@@ -1,0 +1,69 @@
+# Flatpak on ChromeOS (kukui / ARM64)
+
+This is an EAPI 7 Portage overlay for installing Flatpak directly into a
+ChromeOS `dev_install` sysroot. It is intended for the ChromeOS host and does
+not depend on Crostini, the Linux VM, or another container.
+
+The overlay is tested with the `kukui` ARM64 target in the ChromiumOS SDK.
+It keeps the ChromeOS package repository as the base and adds only the
+Flatpak-specific packages and ChromeOS cross-build fixes. It is not a
+replacement for the full Gentoo repository.
+
+## Packages
+
+The main package is `sys-apps/flatpak-1.16.6`. The overlay also supplies the
+EAPI 7 / ARM64 variants needed when the board repository does not provide a
+compatible ebuild, including OSTree, AppStream, libxmlb, GPGME, FUSE,
+bubblewrap, xdg-dbus-proxy, dconf, and the Flatpak account packages.
+
+AppStream stemming, optional systemd/polkit/seccomp integrations, portals,
+and tests are disabled for the ChromeOS host configuration. Flatpak itself,
+OSTree, bubblewrap, xdg-dbus-proxy, FUSE mounting, AppStream metadata, and
+GPG verification support remain enabled.
+
+## Portage configuration
+
+Copy this repository to a persistent path on the Chromebook and install the
+two example configuration files, adjusting `location` in the repository
+config if a different path is used:
+
+```sh
+install -d /usr/local/portage
+cp -a flatpak-chromeos-overlay /usr/local/portage/flatpak-chromeos
+install -d /usr/local/etc/portage/repos.conf /usr/local/etc/portage/package.use
+cp /usr/local/portage/flatpak-chromeos/config/repos.conf/flatpak-chromeos.conf \
+  /usr/local/etc/portage/repos.conf/
+cp /usr/local/portage/flatpak-chromeos/config/package.use/flatpak-chromeos \
+  /usr/local/etc/portage/package.use/
+```
+
+Then, from the ChromeOS host shell:
+
+```sh
+source /etc/profile
+export PORTAGE_CONFIGROOT=/usr/local
+export ROOT=/usr/local
+export LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib
+/usr/local/bin/emerge --ignore-default-opts \
+  --config-root=/usr/local --root=/usr/local \
+  --usepkg --getbinpkg --verbose sys-apps/flatpak
+```
+
+The board's binary repository can satisfy unchanged ChromeOS dependencies;
+the overlay packages are built locally. A successful validation run produced
+ARM64 binaries for Flatpak 1.16.6, OSTree 2025.7, bubblewrap 0.11.2, and
+xdg-dbus-proxy 0.1.7.
+
+## SDK validation
+
+From a ChromiumOS checkout, register the overlay in the `kukui` target
+sysroot and run:
+
+```sh
+emerge-kukui --usepkg --getbinpkg --verbose sys-apps/flatpak
+emerge-kukui --ignore-default-opts --pretend --verbose --tree \
+  --update sys-apps/flatpak
+```
+
+The second command should report zero packages after installation. ARM64
+command-line smoke tests can be run in the SDK with `qemu-aarch64 -L`.
