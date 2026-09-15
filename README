@@ -1,35 +1,49 @@
 # Flatpak on ChromeOS (kukui / ARM64)
 
-This is an EAPI 7 Portage overlay for installing Flatpak directly into a
-ChromeOS `dev_install` sysroot. It is intended for the ChromeOS host and does
-not depend on Crostini, the Linux VM, or another container.
+This repository is an EAPI 7 Portage overlay for installing Flatpak directly
+into a ChromeOS `dev_install` sysroot. It targets the ChromeOS host itself and
+does not require Crostini, the Linux VM, or another container.
 
-The overlay is tested with the `kukui` ARM64 target in the ChromiumOS SDK.
-It keeps the ChromeOS package repository as the base and adds only the
-Flatpak-specific packages and ChromeOS cross-build fixes. It is not a
-replacement for the full Gentoo repository.
+The validated target is `kukui` on ARM64. ChromeOS's package repository stays
+the base repository; this overlay adds only packages and build fixes that are
+needed by Flatpak. It is not a replacement for the Gentoo repository.
 
-## Packages
+## Current scope
 
-The main package is `sys-apps/flatpak-1.16.6`. The overlay also supplies the
-EAPI 7 / ARM64 variants needed when the board repository does not provide a
-compatible ebuild, including OSTree, AppStream, libxmlb, GPGME, FUSE,
-bubblewrap, xdg-dbus-proxy, dconf, and the Flatpak account packages.
+The current stable profile provides:
 
-AppStream stemming, optional systemd/polkit/seccomp integrations, portals,
-and tests are disabled for the ChromeOS host configuration. Flatpak itself,
-OSTree, bubblewrap, xdg-dbus-proxy, FUSE mounting, AppStream metadata, and
-GPG verification support remain enabled.
+- Flatpak 1.16.6
+- OSTree 2025.7 with GPG verification
+- AppStream 1.0.6 metadata support
+- Bubblewrap 0.11.2
+- xdg-dbus-proxy 0.1.7
+- FUSE 3 mounting support
+
+The validated configuration is intentionally user-scope oriented. Flatpak's
+system helper, polkit, systemd integration, and desktop portal stack are not
+enabled yet. Therefore the supported workflow is:
+
+```sh
+flatpak --user remote-add --if-not-exists \
+  flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak --user install flathub APP_ID
+flatpak --user run APP_ID
+```
+
+Desktop portals are planned separately. The Flatpak package itself may still
+install its internal `flatpak-portal`; that is different from
+`xdg-desktop-portal` and a desktop-specific backend.
 
 ## Portage configuration
 
-Copy this repository to a persistent path on the Chromebook and install the
-two example configuration files, adjusting `location` in the repository
-config if a different path is used:
+Clone this repository to a persistent path on the Chromebook and install the
+two example configuration files. If you use another path, adjust `location`
+in `config/repos.conf/flatpak-chromeos.conf` first:
 
 ```sh
 install -d /usr/local/portage
-cp -a flatpak-chromeos-overlay /usr/local/portage/flatpak-chromeos
+git clone --depth=1 https://github.com/rycont/chromeos-flatpak.git \
+  /usr/local/portage/flatpak-chromeos
 install -d /usr/local/etc/portage/repos.conf /usr/local/etc/portage/package.use
 cp /usr/local/portage/flatpak-chromeos/config/repos.conf/flatpak-chromeos.conf \
   /usr/local/etc/portage/repos.conf/
@@ -43,6 +57,7 @@ Then, from the ChromeOS host shell:
 source /etc/profile
 export PORTAGE_CONFIGROOT=/usr/local
 export ROOT=/usr/local
+export PORTDIR_OVERLAY=/usr/local/portage/flatpak-chromeos
 export LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib
 /usr/local/bin/emerge --ignore-default-opts \
   --config-root=/usr/local --root=/usr/local \
@@ -50,9 +65,8 @@ export LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib
 ```
 
 The board's binary repository can satisfy unchanged ChromeOS dependencies;
-the overlay packages are built locally. A successful validation run produced
-ARM64 binaries for Flatpak 1.16.6, OSTree 2025.7, bubblewrap 0.11.2, and
-xdg-dbus-proxy 0.1.7.
+overlay packages are built locally. After installation, start a new shell or
+run `source /etc/profile`, then verify with `flatpak --version`.
 
 ## SDK validation
 
@@ -67,3 +81,12 @@ emerge-kukui --ignore-default-opts --pretend --verbose --tree \
 
 The second command should report zero packages after installation. ARM64
 command-line smoke tests can be run in the SDK with `qemu-aarch64 -L`.
+
+## Limitations
+
+ChromeOS does not provide a conventional Linux desktop session to host-side
+applications. Installing this overlay does not make ChromeOS's native Files
+picker or Ash permission UI available to Flatpak applications. A complete
+portal setup needs a user D-Bus session and a compatible backend such as GTK;
+that backend will provide its own dialogs unless a ChromeOS-specific bridge is
+implemented.
