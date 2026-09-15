@@ -7,8 +7,7 @@ set -euo pipefail
 export PATH="/usr/bin:/bin:/opt/bin"
 
 BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board/kukui/16765.41.0/packages"
-REPO_REF="cc3a067"
-REPO_TARBALL="https://github.com/rycont/chromeos-flatpak/archive/${REPO_REF}.tar.gz"
+REPO_API="https://api.github.com/repos/rycont/chromeos-flatpak/commits/main"
 OVERLAY="/usr/local/portage/flatpak-chromeos"
 
 SUDO="/usr/bin/sudo"
@@ -72,6 +71,17 @@ else
 	fi
 fi
 
+repo_json="$workdir/repository.json"
+"$CURL" -fsSL --retry 3 \
+	-H 'Accept: application/vnd.github+json' \
+	-H 'X-GitHub-Api-Version: 2022-11-28' \
+	-o "$repo_json" "$REPO_API"
+repo_ref="$($SED -n \
+	'/^[[:space:]]*"sha":[[:space:]]*"[0-9a-f]\{40\}"/ { s/^[[:space:]]*"sha":[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p; q; }' \
+	"$repo_json")"
+[ -n "$repo_ref" ] || die "could not resolve the latest main commit"
+repo_tarball="https://github.com/rycont/chromeos-flatpak/archive/${repo_ref}.tar.gz"
+
 portage_init="$($FIND /usr/local/lib /usr/local/lib64 -type f \
 	-path '*/portage/__init__.py' -print -quit 2>/dev/null || true)"
 [ -n "$portage_init" ] || die "the dev_install Portage library was not found"
@@ -85,7 +95,7 @@ if ! run_root "$GREP" -q "^[[:space:]]*'PORTAGE_BINHOST',[[:space:]]*$" \
 fi
 
 echo "chromeos-flatpak: downloading the self-contained overlay"
-"$CURL" -fsSL --retry 3 -o "$workdir/overlay.tar.gz" "$REPO_TARBALL"
+"$CURL" -fsSL --retry 3 -o "$workdir/overlay.tar.gz" "$repo_tarball"
 "$TAR" -xzf "$workdir/overlay.tar.gz" -C "$workdir"
 overlay_source="$($FIND "$workdir" -mindepth 1 -maxdepth 1 -type d \
 	-name 'chromeos-flatpak-*' -print -quit)"
