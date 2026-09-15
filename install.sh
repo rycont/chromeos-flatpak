@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+# The VT shell on ChromeOS has a deliberately minimal PATH. Keep helper
+# programs used by tar and env discoverable during the bootstrap.
+export PATH="/usr/bin:/bin:/opt/bin"
+
 BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board/kukui/16765.41.0/packages"
 REPO_REF="main"
 REPO_TARBALL="https://github.com/rycont/chromeos-flatpak/archive/refs/heads/${REPO_REF}.tar.gz"
