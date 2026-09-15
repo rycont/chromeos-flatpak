@@ -132,10 +132,6 @@ run_root "$INSTALL" -d -m 0755 \
 	/usr/local/etc/portage/repos.conf \
 	/usr/local/etc/portage/package.use \
 	/usr/local/etc/portage/package.accept_keywords
-if ! run_root "$GREP" -qxF dev-build /usr/local/etc/portage/categories 2>/dev/null; then
-	printf '%s\n' dev-build | run_root "$TEE" -a /usr/local/etc/portage/categories \
-		>/dev/null
-fi
 run_root "$CP" -f "$OVERLAY/config/repos.conf/flatpak-chromeos.conf" \
 	/usr/local/etc/portage/repos.conf/flatpak-chromeos.conf
 run_root "$CP" -f "$OVERLAY/config/package.use/flatpak-chromeos" \
