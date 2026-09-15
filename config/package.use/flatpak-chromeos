@@ -1,6 +1,6 @@
 dev-util/ostree -archive -soup -http2 -introspection -systemd -doc -dracut -grub -libmount -selinux -sodium -zeroconf curl flatpak-gpg gnutls ssl
 dev-libs/glib -mime xattr
-dev-libs/json-glib -introspection
+dev-libs/json-glib introspection
 gnome-base/gsettings-desktop-schemas -introspection
 x11-libs/gdk-pixbuf -introspection
 sys-apps/bubblewrap -selinux -suid
