@@ -64,7 +64,9 @@ curl -fsSL https://raw.githubusercontent.com/rycont/chromeos-flatpak/main/instal
 
 The script takes no arguments. It requires passwordless `sudo`, runs
 `dev_install` for the `kukui` developer sysroot, installs Flatpak and the GTK
-portal, and performs basic file checks. For safety, it refuses to run when
+portal, and performs basic file checks. It resolves the latest `main` commit
+through GitHub's public API with `curl`; the target Chromebook does not need
+the `gh` CLI. For safety, it refuses to run when
 `/usr/local` already contains anything; remove the existing developer sysroot
 with `sudo dev_install --uninstall` and rerun it if necessary. It never empties
 an existing `/usr/local` itself.
