@@ -203,6 +203,16 @@ while IFS= read -r provided_file; do
 done < <("$FIND" -L /usr/local/etc/portage/make.profile/package.provided \
 	-type f -print 2>/dev/null)
 
+# The pinned ARM64 GLib binary uses the libc-provided iconv/gettext
+# interfaces. Its upstream metadata names the corresponding virtuals, but
+# this ChromeOS profile does not list those host capabilities.
+provided_dir=/usr/local/etc/portage/make.profile/package.provided
+run_root "$INSTALL" -d -m 0755 "$provided_dir"
+run_root "$TEE" "$provided_dir/chromeos-flatpak" >/dev/null <<'EOF'
+virtual/libiconv-0-r1
+virtual/libintl-0-r2
+EOF
+
 # The old Portage shipped by this ChromeOS release filters PORTAGE_BINHOST out
 # of ebuild environments. The main emerge process also needs to retain it in
 # order to populate the second (common ARM64) binhost.
@@ -229,8 +239,8 @@ fi
 
 # The ChromeOS profile's old curl fetch command does not follow GitHub's
 # release-asset redirect. Use curl -L for source archives fetched by ebuilds.
-fetch_command='FETCHCOMMAND="/usr/bin/curl --connect-timeout 15 -L -# -o ${DISTDIR}/${FILE} ${URI}"'
-resume_command='RESUMECOMMAND="/usr/bin/curl --connect-timeout 15 -L -# -C - -o ${DISTDIR}/${FILE}${URI}"'
+fetch_command='FETCHCOMMAND="/usr/bin/curl --connect-timeout 15 -L -# -o \${DISTDIR}/\${FILE} \${URI}"'
+resume_command='RESUMECOMMAND="/usr/bin/curl --connect-timeout 15 -L -# -C - -o \${DISTDIR}/\${FILE}\${URI}"'
 if run_root "$GREP" -q '^FETCHCOMMAND=' "$make_conf"; then
 	run_root "$SED" -i "s#^FETCHCOMMAND=.*#$fetch_command#" "$make_conf"
 else

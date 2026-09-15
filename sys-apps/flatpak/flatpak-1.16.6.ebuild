@@ -55,7 +55,10 @@ RDEPEND="
 	systemd? ( sys-apps/systemd )
 "
 
-DEPEND="${RDEPEND}"
+# With ChromeOS's EAPI 7 Portage, copying RDEPEND into DEPEND makes OSTree
+# appear once in the build root (/) and once in the target root. All runtime
+# libraries are already available from the target sysroot while building.
+DEPEND=""
 BDEPEND="
 	virtual/pkgconfig
 	dev-util/gdbus-codegen
