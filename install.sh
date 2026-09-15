@@ -34,6 +34,7 @@ TAR="/bin/tar"
 TEE="/usr/bin/tee"
 LDCONFIG="/sbin/ldconfig"
 SHA256SUM="/usr/bin/sha256sum"
+GPG="/usr/bin/gpg"
 LSB_RELEASE="/etc/lsb-release"
 
 die() {
@@ -43,7 +44,7 @@ die() {
 
 for tool in "$SUDO" "$CURL" "$FIND" "$GREP" "$ID" "$INSTALL" "$LN" "$CP" \
 	"$CHMOD" "$CHOWN" "$MKDTEMP" "$MV" "$RM" "$SED" "$TAR" "$TEE" \
-	"$LDCONFIG" "$SHA256SUM"; do
+	"$LDCONFIG" "$SHA256SUM" "$GPG"; do
 	[ -x "$tool" ] || die "required host tool is missing: $tool"
 done
 
