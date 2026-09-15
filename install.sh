@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-# The VT shell on ChromeOS has a deliberately minimal PATH. Keep helper
-# programs used by tar and env discoverable during the bootstrap.
-export PATH="/usr/bin:/bin:/opt/bin"
+# The VT shell on ChromeOS has a deliberately minimal PATH. Include both
+# regular and administrative host utilities used during the bootstrap.
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/bin"
 
 BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board/kukui/16765.41.0/packages"
 COMMON_BINHOST="https://commondatastorage.googleapis.com/chromeos-prebuilt/board/arm64-generic/postsubmit-R156-16821.0.0-87474-8670646292013436097/packages"
