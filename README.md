@@ -31,19 +31,18 @@ flatpak --user install flathub APP_ID
 flatpak --user run APP_ID
 ```
 
-An optional GTK desktop-portal profile is included, but it is not part of the
-base installation. It provides portal dialogs through GTK; it does not expose
-ChromeOS's native Files picker or Ash permission UI. To install it, copy the
-additional USE configuration and emerge the backend:
+The base installation also includes the core `xdg-desktop-portal` service and
+the small PipeWire client ABI it needs. It uses D-Bus activation and does not
+enable systemd. This is the portal dispatcher and document portal; it does not
+provide a ChromeOS-native Files picker by itself.
 
-```sh
-cp /usr/local/portage/flatpak-chromeos/config/package.use/flatpak-chromeos-portal \
-  /usr/local/etc/portage/package.use/
-/usr/local/bin/emerge --ignore-default-opts \
-  --config-root=/usr/local --root=/usr/local \
-  --usepkg --getbinpkg --verbose \
-  sys-apps/xdg-desktop-portal-gtk
-```
+An optional GTK desktop-portal ebuild is included, but it is not part of the
+base installation. A clean `kukui` developer sysroot does not provide the
+GTK package stack needed by that backend, so it is outside the supported
+one-command path. If a compatible GTK stack is supplied separately, copy
+`config/package.use/flatpak-chromeos-portal` and emerge
+`sys-apps/xdg-desktop-portal-gtk`. It provides its own GTK dialogs; it does
+not expose ChromeOS's native Files picker or Ash permission UI.
 
 The portal package uses D-Bus activation and does not enable systemd. The
 overlay's PipeWire package supplies the client library needed to build the
@@ -63,13 +62,28 @@ curl -fsSL https://raw.githubusercontent.com/rycont/chromeos-flatpak/main/instal
 ```
 
 The script takes no arguments. It requires passwordless `sudo`, runs
-`dev_install` for the `kukui` developer sysroot, installs Flatpak and the GTK
-portal, and performs basic file checks. It resolves the latest `main` commit
-through GitHub's public API with `curl`; the target Chromebook does not need
-the `gh` CLI. For safety, it refuses to run when
+`dev_install` for the `kukui` developer sysroot, installs Flatpak and the core
+desktop portal, and performs basic file checks. It resolves the latest `main`
+commit through GitHub's public API with `curl`; the target Chromebook does not
+need the `gh` CLI. For safety, it refuses to run when
 `/usr/local` already contains anything; remove the existing developer sysroot
 with `sudo dev_install --uninstall` and rerun it if necessary. It never empties
 an existing `/usr/local` itself.
+
+If the command is launched from a controlling PC with an authenticated `gh`,
+resolve the current `main` SHA there and stream the exact revision to the
+Chromebook over SSH. Replace the SSH key and target with your own values:
+
+```sh
+ref="$(gh api repos/rycont/chromeos-flatpak/commits/main --jq .sha)" && \
+curl -fsSL "https://raw.githubusercontent.com/rycont/chromeos-flatpak/${ref}/install.sh" | \
+ssh -T -i /path/to/key chronos@chromebook \
+  "CHROMEOS_FLATPAK_REV=${ref} /bin/bash --noprofile --norc -s"
+```
+
+The `CHROMEOS_FLATPAK_REV` value prevents `main` moving between the API lookup
+and the archive download. The Chromebook itself only needs the tools used by
+`install.sh`; it does not need the `gh` CLI.
 
 ## Portage configuration
 

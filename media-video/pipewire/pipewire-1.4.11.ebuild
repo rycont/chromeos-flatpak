@@ -5,6 +5,13 @@ EAPI=7
 
 inherit meson
 
+# The ChromiumOS SDK cross-build cannot execute ARM64 test binaries while
+# Meson performs its compiler sanity check.  The installed package is used on
+# a native ARM64 ChromeOS host, so a successful no-op wrapper is sufficient.
+_meson_get_exe_wrapper() {
+	echo /bin/true
+}
+
 DESCRIPTION="Multimedia processing graphs (minimal client library for ChromeOS portals)"
 HOMEPAGE="https://pipewire.org/"
 SRC_URI="https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/${PV}/${P}.tar.bz2"

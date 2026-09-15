@@ -5,6 +5,12 @@ EAPI=7
 
 inherit meson systemd
 
+# See the corresponding note in the PipeWire ebuild.  This is only used by
+# the SDK's cross-build and is not used for a native ChromeOS emerge.
+_meson_get_exe_wrapper() {
+	echo /bin/true
+}
+
 DESCRIPTION="Desktop integration portal"
 HOMEPAGE="https://flatpak.github.io/xdg-desktop-portal/ https://github.com/flatpak/xdg-desktop-portal"
 SRC_URI="https://github.com/flatpak/${PN}/releases/download/${PV}/${P}.tar.xz"
