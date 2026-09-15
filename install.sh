@@ -7,7 +7,7 @@ set -euo pipefail
 export PATH="/usr/bin:/bin:/opt/bin"
 
 BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board/kukui/16765.41.0/packages"
-REPO_REF="main"
+REPO_REF="4f6f9f9"
 REPO_TARBALL="https://github.com/rycont/chromeos-flatpak/archive/refs/heads/${REPO_REF}.tar.gz"
 OVERLAY="/usr/local/portage/flatpak-chromeos"
 
