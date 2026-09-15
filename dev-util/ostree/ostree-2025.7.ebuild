@@ -3,7 +3,7 @@
 
 EAPI=7
 
-inherit autotools systemd tmpfiles
+inherit systemd tmpfiles
 
 DESCRIPTION="Operating system and container binary deployment and upgrades"
 HOMEPAGE="https://ostreedev.github.io/ostree/"
@@ -74,7 +74,6 @@ PATCHES=(
 
 src_prepare() {
 	default
-	eautoreconf
 }
 
 src_configure() {
