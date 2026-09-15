@@ -21,7 +21,6 @@ IUSE="wayland X"
 
 BDEPEND="
 	dev-util/gdbus-codegen
-	sys-devel/gettext
 	virtual/pkgconfig
 "
 
@@ -38,6 +37,13 @@ DEPEND="
 
 RDEPEND="${DEPEND}"
 S="${WORKDIR}/${MY_P}"
+
+src_prepare() {
+	# The ChromeOS dev root does not ship msgfmt; translations are optional
+	# for this host installation.
+	sed -i "/subdir('po')/d; /subdir('po\\/')/d" meson.build || die
+	default
+}
 
 src_configure() {
 	local emesonargs=(

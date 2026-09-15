@@ -21,7 +21,6 @@ IUSE="introspection"
 BDEPEND="
 	introspection? ( >=dev-libs/gobject-introspection-1.82.0-r2:= )
 	dev-util/glib-utils
-	>=sys-devel/gettext-0.19.8
 	virtual/pkgconfig
 "
 
@@ -29,6 +28,13 @@ PATCHES=(
 	# Use generic sans and monospace aliases
 	"${FILESDIR}"/48.0-default-fonts.patch
 )
+
+src_prepare() {
+	# The ChromeOS dev root does not ship msgfmt; translations are optional
+	# for this host installation.
+	sed -i "/subdir('po')/d; /subdir('po\\/')/d" meson.build || die
+	default
+}
 
 src_configure() {
 	local emesonargs=(

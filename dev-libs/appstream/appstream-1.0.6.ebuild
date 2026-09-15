@@ -57,7 +57,6 @@ DEPEND="${RDEPEND}"
 BDEPEND="
 	dev-util/glib-utils
 	dev-util/gperf
-	>=sys-devel/gettext-0.19.8
 	doc? (
 		app-text/docbook-xsl-stylesheets
 		app-text/docbook-xml-dtd:4.5
@@ -74,6 +73,9 @@ PATCHES=(
 
 src_prepare() {
 	default
+	# The ChromeOS dev root does not ship msgfmt; translations are optional
+	# for this host installation.
+	sed -i "/subdir('po')/d; /subdir('po\\/')/d" meson.build || die
 	# The data/ subdirectory invokes a native appstreamcli during a
 	# cross-build. ChromeOS builds the target library and CLI, but does not
 	# provide a native AppStream executable in the SDK.

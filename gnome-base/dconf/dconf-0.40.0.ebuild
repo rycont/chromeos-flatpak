@@ -26,7 +26,6 @@ DEPEND="${RDEPEND}"
 BDEPEND="
 	dev-util/gdbus-codegen
 	gtk-doc? ( >=dev-util/gtk-doc-1.15 )
-	>=sys-devel/gettext-0.19.8
 	virtual/pkgconfig
 "
 
@@ -34,6 +33,13 @@ PATCHES=(
 	"${FILESDIR}"/0.40.0-bash-completion-dir.patch
 	"${FILESDIR}"/0.32.0-drop-vapigen-dep.patch # .vapi/.deps are pregenerated, just install them without a vala dep
 )
+
+src_prepare() {
+	# The ChromeOS dev root does not ship msgfmt; translations are optional
+	# for this host installation.
+	sed -i "/subdir('po')/d; /subdir('po\\/')/d" meson.build || die
+	default
+}
 
 src_configure() {
 	local emesonargs=(
