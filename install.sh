@@ -223,7 +223,7 @@ run_root env \
 	LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib \
 	/usr/local/bin/emerge --ignore-default-opts \
 	--config-root=/usr/local --root=/usr/local \
-	--getbinpkg --usepkg --verbose \
+	--getbinpkg --usepkg --binpkg-respect-use=n --binpkg-changed-deps=n --verbose \
 	sys-apps/flatpak sys-apps/xdg-desktop-portal
 
 run_root test -x /usr/local/bin/flatpak
