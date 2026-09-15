@@ -7,7 +7,6 @@ set -euo pipefail
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/bin"
 
 BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board/kukui/16765.41.0/packages"
-COMMON_BINHOST="https://commondatastorage.googleapis.com/chromeos-prebuilt/board/arm64-generic/postsubmit-R156-16821.0.0-87474-8670646292013436097/packages"
 REPO_API="https://api.github.com/repos/rycont/chromeos-flatpak/commits/main"
 OVERLAY="/usr/local/portage/flatpak-chromeos"
 
@@ -145,7 +144,7 @@ echo "chromeos-flatpak: emerging Flatpak and the core desktop portal"
 run_root env \
 	PORTAGE_CONFIGROOT=/usr/local \
 	ROOT=/usr/local \
-	PORTAGE_BINHOST="$BINHOST $COMMON_BINHOST" \
+	PORTAGE_BINHOST="$BINHOST" \
 	PORTDIR_OVERLAY="$OVERLAY" \
 	LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib \
 	/usr/local/bin/emerge --ignore-default-opts \
