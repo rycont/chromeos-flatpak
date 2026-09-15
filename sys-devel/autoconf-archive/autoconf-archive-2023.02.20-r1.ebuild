@@ -10,6 +10,10 @@ LICENSE="GPL-3"
 SLOT="0"
 KEYWORDS="arm64"
 
+# There is intentionally no source archive for this compatibility package.
+# Point Portage at the work directory so its phase wrapper can still run.
+S="${WORKDIR}"
+
 # The ChromeOS development image already provides a newer copy of the
 # Autoconf Archive macros in /usr/share/aclocal.  The old ChromiumOS Portage
 # tree nevertheless pulls this package into BROOT; installing its older
