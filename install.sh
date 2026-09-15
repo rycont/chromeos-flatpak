@@ -227,6 +227,21 @@ else
 	run_root "$TEE" -a "$make_conf" >/dev/null <<<"$binhost_value"
 fi
 
+# The ChromeOS profile's old curl fetch command does not follow GitHub's
+# release-asset redirect. Use curl -L for source archives fetched by ebuilds.
+fetch_command='FETCHCOMMAND="/usr/bin/curl --connect-timeout 15 -L -# -o ${DISTDIR}/${FILE} ${URI}"'
+resume_command='RESUMECOMMAND="/usr/bin/curl --connect-timeout 15 -L -# -C - -o ${DISTDIR}/${FILE}${URI}"'
+if run_root "$GREP" -q '^FETCHCOMMAND=' "$make_conf"; then
+	run_root "$SED" -i "s#^FETCHCOMMAND=.*#$fetch_command#" "$make_conf"
+else
+	run_root "$TEE" -a "$make_conf" >/dev/null <<<"$fetch_command"
+fi
+if run_root "$GREP" -q '^RESUMECOMMAND=' "$make_conf"; then
+	run_root "$SED" -i "s#^RESUMECOMMAND=.*#$resume_command#" "$make_conf"
+else
+	run_root "$TEE" -a "$make_conf" >/dev/null <<<"$resume_command"
+fi
+
 install_runtime_profile
 
 # ChromiumOS publishes the common index with a gs:// BASE_URI, while this
