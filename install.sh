@@ -149,6 +149,7 @@ run_root env \
 	PORTDIR_OVERLAY="$OVERLAY" \
 	LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib \
 	/usr/local/bin/emerge --ignore-default-opts \
+	--config-root=/usr/local --root=/usr/local \
 	--getbinpkg --usepkg --verbose \
 	sys-apps/flatpak sys-apps/xdg-desktop-portal
 
