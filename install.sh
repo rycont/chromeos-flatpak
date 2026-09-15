@@ -83,6 +83,24 @@ unset flatpak_profile
 EOF
 }
 
+configure_portage_make_conf() {
+	local make_conf=/usr/local/etc/portage/make.conf
+	local binhost_value="PORTAGE_BINHOST=\"$BINHOST $COMMON_BINHOST\""
+	local fetch_command='FETCHCOMMAND="/usr/bin/curl --connect-timeout 15 -L -# -o \${DISTDIR}/\${FILE} \${URI}"'
+	local resume_command='RESUMECOMMAND="/usr/bin/curl --connect-timeout 15 -L -# -C - -o \${DISTDIR}/\${FILE}\${URI}"'
+
+	# Rewrite rather than append: dev_install --uninstall preserves this
+	# developer configuration file between runs.
+	run_root "$SED" -i \
+		'/^PORTAGE_BINHOST=/d; /^FETCHCOMMAND=/d; /^RESUMECOMMAND=/d' \
+		"$make_conf"
+	run_root "$TEE" -a "$make_conf" >/dev/null <<EOF
+$binhost_value
+$fetch_command
+$resume_command
+EOF
+}
+
 if [ -d /usr/local ]; then
 	first_entry="$(run_root "$FIND" /usr/local -mindepth 1 -maxdepth 1 \
 		-print -quit 2>/dev/null || true)"
@@ -227,31 +245,9 @@ done < <("$FIND" /usr/local/lib /usr/local/lib64 /usr/local/usr/lib \
 	-path '*/portage/package/ebuild/_config/special_env_vars.py' \
 	-print 2>/dev/null)
 
-# make.conf wins over an inherited PORTAGE_BINHOST environment variable in
-# this old Portage, so write the complete binhost list into the active config.
-make_conf=/usr/local/etc/portage/make.conf
-binhost_value="PORTAGE_BINHOST=\"$BINHOST $COMMON_BINHOST\""
-if run_root "$GREP" -q '^PORTAGE_BINHOST=' "$make_conf"; then
-	run_root "$SED" -i "s#^PORTAGE_BINHOST=.*#$binhost_value#" "$make_conf"
-else
-	run_root "$TEE" -a "$make_conf" >/dev/null <<<"$binhost_value"
-fi
-
-# The ChromeOS profile's old curl fetch command does not follow GitHub's
-# release-asset redirect. Use curl -L for source archives fetched by ebuilds.
-fetch_command='FETCHCOMMAND="/usr/bin/curl --connect-timeout 15 -L -# -o \${DISTDIR}/\${FILE} \${URI}"'
-resume_command='RESUMECOMMAND="/usr/bin/curl --connect-timeout 15 -L -# -C - -o \${DISTDIR}/\${FILE}\${URI}"'
-if run_root "$GREP" -q '^FETCHCOMMAND=' "$make_conf"; then
-	run_root "$SED" -i "s#^FETCHCOMMAND=.*#$fetch_command#" "$make_conf"
-else
-	run_root "$TEE" -a "$make_conf" >/dev/null <<<"$fetch_command"
-fi
-if run_root "$GREP" -q '^RESUMECOMMAND=' "$make_conf"; then
-	run_root "$SED" -i "s#^RESUMECOMMAND=.*#$resume_command#" "$make_conf"
-else
-	run_root "$TEE" -a "$make_conf" >/dev/null <<<"$resume_command"
-fi
-
+# make.conf wins over inherited values in this old Portage. Configure it
+# before the first binary fetch as dev_install may preserve the file.
+configure_portage_make_conf
 install_runtime_profile
 
 # ChromiumOS publishes the common index with a gs:// BASE_URI, while this
