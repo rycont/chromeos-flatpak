@@ -145,13 +145,30 @@ run_root "$CP" -f "$OVERLAY/config/package.accept_keywords/flatpak-chromeos" \
 # but package.provided cannot express its real SLOT=2.  Dependencies such as
 # gdk-pixbuf:2 and xdg-desktop-portal therefore fail to see the host library.
 # Remove only that stale provision so the matching ChromeOS GLib binary can be
-# registered in the target sysroot.
-for provided_file in $(run_root "$FIND" \
-	/usr/local/etc/portage/make.profile/package.provided -type f -print 2>/dev/null); do
+# registered in the target sysroot. Enumerate as the calling user and edit as
+# root; this also works when the profile tree is not traversable by sudo's
+# command-substitution environment.
+while IFS= read -r provided_file; do
+	[ -n "$provided_file" ] || continue
 	if run_root "$GREP" -q '^dev-libs/glib-' "$provided_file"; then
 		run_root "$SED" -i '/^dev-libs\/glib-/d' "$provided_file"
 	fi
-done
+done < <("$FIND" /usr/local/etc/portage/make.profile/package.provided \
+	-type f -print 2>/dev/null)
+
+# The old Portage shipped by this ChromeOS release filters PORTAGE_BINHOST out
+# of ebuild environments. The main emerge process also needs to retain it in
+# order to populate the second (common ARM64) binhost.
+while IFS= read -r special_env; do
+	[ -n "$special_env" ] || continue
+	if ! run_root "$GREP" -qF "'PORTAGE_BINHOST'" "$special_env"; then
+		run_root "$SED" -i "/^environ_whitelist = \[/s/\[/['PORTAGE_BINHOST', /" \
+		"$special_env"
+	fi
+done < <("$FIND" /usr/local/lib /usr/local/lib64 /usr/local/usr/lib \
+	/usr/local/usr/lib64 -type f \
+	-path '*/portage/package/ebuild/_config/special_env_vars.py' \
+	-print 2>/dev/null)
 
 echo "chromeos-flatpak: installing the ChromeOS GLib :2 binary"
 run_root env \
