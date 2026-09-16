@@ -15,6 +15,8 @@ BUNDLE_NAME="chromeos-flatpak-kukui-r152-arm64.tar.xz"
 BUNDLE_URL="https://github.com/rycont/chromeos-flatpak/releases/download/${BUNDLE_RELEASE}/${BUNDLE_NAME}"
 BUNDLE_SHA256_URL="${BUNDLE_URL}.sha256"
 FLATPAK_USER_DIR="/usr/local/var/lib/flatpak-user"
+LAUNCHER_OVERLAY_DIR="/usr/local/portage/flatpak-chromeos/launcher"
+LAUNCHER_INSTALL_DIR="/usr/local/share/chromeos-flatpak/launcher"
 
 SUDO="/usr/bin/sudo"
 CURL="/usr/bin/curl"
@@ -106,6 +108,28 @@ for flatpak_profile in /usr/local/etc/profile.d/*.sh; do
 done
 unset flatpak_profile
 EOF
+}
+
+install_launcher() {
+	local source="$LAUNCHER_OVERLAY_DIR"
+	local file
+
+	for file in launcher.py chromeos-flatpak-launcher; do
+		[ -f "$source/$file" ] || die "launcher file is missing: $source/$file"
+	done
+	for file in app.html app.js styles.css; do
+		[ -f "$source/web/$file" ] || die "launcher web file is missing: $source/web/$file"
+	done
+
+	run_root "$INSTALL" -d -m 0755 "$LAUNCHER_INSTALL_DIR/web"
+	run_root "$INSTALL" -m 0755 "$source/launcher.py" \
+		"$LAUNCHER_INSTALL_DIR/launcher.py"
+	run_root "$INSTALL" -m 0755 "$source/chromeos-flatpak-launcher" \
+		/usr/local/bin/chromeos-flatpak-launcher
+	for file in app.html app.js styles.css; do
+		run_root "$INSTALL" -m 0644 "$source/web/$file" \
+			"$LAUNCHER_INSTALL_DIR/web/$file"
+	done
 }
 
 configure_flatpak_user_dir() {
@@ -343,8 +367,10 @@ run_root "$CHMOD" 4755 /usr/local/bin/bwrap
 run_root "$LDCONFIG"
 
 patch_runtime_paths
+install_launcher
 
 run_root test -x /usr/local/bin/flatpak
+run_root test -x /usr/local/bin/chromeos-flatpak-launcher
 run_root test -x /usr/local/libexec/xdg-desktop-portal
 run_root test -f /usr/local/share/dbus-1/services/org.freedesktop.portal.Desktop.service
 run_root test -u /usr/local/bin/bwrap
@@ -355,3 +381,4 @@ else
 fi
 echo "chromeos-flatpak: Flatpak, portal, and the tested bwrap sandbox were installed"
 echo "chromeos-flatpak: source /usr/local/etc/profile, then use flatpak --user or flatpak --system"
+echo "chromeos-flatpak: run chromeos-flatpak-launcher /path/to/app.desktop"

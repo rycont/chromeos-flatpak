@@ -1,0 +1,45 @@
+#!/bin/bash
+
+set -euo pipefail
+
+export PATH="/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/bin${PATH:+:$PATH}"
+export LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export FLATPAK_SYSTEM_DIR="${FLATPAK_SYSTEM_DIR:-/usr/local/var/lib/flatpak}"
+export FLATPAK_USER_DIR="${FLATPAK_USER_DIR:-/usr/local/var/lib/flatpak-user}"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+BASE=/usr/local/share/chromeos-flatpak/launcher
+PYTHON=/usr/local/bin/python3.11
+PORT=39393
+STATE_DIR="${CHROMEOS_FLATPAK_STATE_DIR:-/tmp/chromeos-flatpak-launcher}"
+PID_FILE="$STATE_DIR/launcher.pid"
+LOG_FILE="$STATE_DIR/launcher.log"
+
+[ "$#" -eq 1 ] || {
+  echo "Usage: $0 /absolute/path/to/app.desktop" >&2
+  exit 2
+}
+
+desktop=$1
+url_path="$($PYTHON -c 'from pathlib import Path; from urllib.parse import quote; import sys; print(quote(str(Path(sys.argv[1]).resolve()), safe=""))' "$desktop")"
+url="http://localhost:${PORT}/?desktop=${url_path}"
+
+if ! [ -f "$PID_FILE" ] || ! kill -0 "$(sed -n '1p' "$PID_FILE")" 2>/dev/null; then
+  mkdir -p "$STATE_DIR"
+  rm -f "$PID_FILE"
+  if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    nohup "$PYTHON" "$BASE/launcher.py" --pid-file "$PID_FILE" >>"$LOG_FILE" 2>&1 </dev/null &
+  else
+    nohup /usr/bin/dbus-run-session -- "$PYTHON" "$BASE/launcher.py" \
+      --pid-file "$PID_FILE" >>"$LOG_FILE" 2>&1 </dev/null &
+  fi
+fi
+
+echo "$url"
+if command -v dbus-send >/dev/null 2>&1; then
+  dbus-send --system --type=method_call \
+    --dest=org.chromium.UrlHandlerService \
+    /org/chromium/UrlHandlerService \
+    org.chromium.UrlHandlerService.OpenUrl \
+    string:"$url" >/dev/null 2>&1 || true
+fi
