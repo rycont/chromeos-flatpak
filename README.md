@@ -1,34 +1,21 @@
-# Flatpak on ChromeOS (kukui / ARM64)
+# Flatpak on ChromeOS
 
-This repository is an EAPI 7 Portage overlay for installing Flatpak directly
-into a ChromeOS `dev_install` sysroot. It targets the ChromeOS host itself and
-does not require Crostini, the Linux VM, or another container.
+Flatpak, directly on the ChromeOS host. No Crostini, Linux VM, or extra
+container.
 
-The validated target is `kukui` on ARM64. ChromeOS's package repository stays
-the base repository; this overlay adds only packages, build fixes, and the
-small compatible eclass set needed by Flatpak. It does not require connecting
-a general Gentoo package repository.
+Currently tested on `kukui` / ARM64 / ChromeOS `16765.41.0` (R152).
 
-## Current scope
+## Install
 
-The current stable profile provides:
+On a Chromebook with an empty `/usr/local`:
 
-- Flatpak 1.16.6
-- OSTree 2025.7 with GPG verification
-- AppStream 1.0.6 metadata support
-- Bubblewrap 0.11.2 built with its setuid sandbox helper
-- xdg-dbus-proxy 0.1.7
-- FUSE 3 mounting support
+```sh
+curl -fsSL https://raw.githubusercontent.com/rycont/chromeos-flatpak/main/install.sh | bash
+```
 
-ChromeOS mounts `/home/chronos/user` with `noexec`. A normal Flatpak user
-installation there can download successfully but cannot execute its runtime.
-The installer therefore puts Flatpak's user repository in the executable
-`/usr/local/var/lib/flatpak-user` path and makes it owned by `chronos`. The
-system repository is `/usr/local/var/lib/flatpak`. Both scopes use the tested
-setuid `bwrap` helper; the helper is required because ChromeOS blocks the
-unprivileged mount setup used by stock bubblewrap.
+Open a new host shell after installation.
 
-After opening a new host shell, the normal per-user workflow is:
+## Use
 
 ```sh
 source /usr/local/etc/profile
@@ -38,153 +25,75 @@ flatpak --user install flathub APP_ID
 flatpak --user run APP_ID
 ```
 
-The installer creates `/usr/local/etc/profile` so new host shells include
-`/usr/local/bin`, `/usr/local/share`, and the target system installation at
-`/usr/local/var/lib/flatpak`. For a system-scope remote or installation, run
-the Flatpak command as root (the system repository is root-owned):
+For example:
 
 ```sh
-sudo -n flatpak --system remote-add --if-not-exists \
-  flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-sudo -n flatpak --system install flathub APP_ID
+# Anki
+flatpak --user run net.ankiweb.Anki
+
+# VS Code — try this first
+flatpak --user run com.visualstudio.code
 ```
 
-The base installation also includes the core `xdg-desktop-portal` service and
-the small PipeWire client ABI it needs. It uses D-Bus activation and does not
-enable systemd or polkit. This is the portal dispatcher and document portal;
-it does not provide a ChromeOS-native Files picker by itself.
+## If VS Code crashes
 
-On the validated host, D-Bus successfully auto-activates
-`org.freedesktop.portal.Desktop`, `org.freedesktop.portal.Documents`, and
-`org.freedesktop.impl.portal.PermissionStore`. The expected optional
-RealtimeKit warning remains because ChromeOS does not provide RealtimeKit.
+Most applications should use the normal command above. If an application
+crashes ChromeOS, shows a broken window, or reports a Wayland error, try the
+optional Sommelier fallback.
 
-An optional GTK desktop-portal ebuild is included, but it is not part of the
-base installation. A clean `kukui` developer sysroot does not provide the
-GTK package stack needed by that backend, so it is outside the supported
-one-command path. If a compatible GTK stack is supplied separately, copy
-`config/package.use/flatpak-chromeos-portal` and emerge
-`sys-apps/xdg-desktop-portal-gtk`. It provides its own GTK dialogs; it does
-not expose ChromeOS's native Files picker or Ash permission UI.
+<details>
+<summary>VS Code fallback used on the test Chromebook</summary>
 
-The portal package uses D-Bus activation and does not enable systemd. The
-overlay's PipeWire package supplies the client library needed to build the
-portal; it does not start a PipeWire daemon or replace ChromeOS's CRAS audio
-stack. A user D-Bus session and a graphical environment are still required.
-
-The setuid bubblewrap helper is a deliberate security trade-off. It is
-installed root-owned with mode `4755`, and is only used to provide the mount
-namespace operations that the ChromeOS host otherwise denies. Do not copy this
-bundle to another distribution without reviewing that trust boundary.
-
-The Flatpak package itself may also install its internal `flatpak-portal`; that
-is different from `xdg-desktop-portal` and a desktop-specific backend.
-
-## One-command installation
-
-On a Chromebook with an empty `/usr/local`, the complete installation can be
-started with one command:
+Download the debug-enabled ARM64 Sommelier binary from the matching [release](https://github.com/rycont/chromeos-flatpak/releases/tag/r152-kukui-16765.41.0), then run this in one host shell:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rycont/chromeos-flatpak/main/install.sh | bash
+curl -fL \
+  https://github.com/rycont/chromeos-flatpak/releases/download/r152-kukui-16765.41.0/sommelier-kukui-r152-arm64 \
+  -o /tmp/sommelier
+sudo install -m 0755 /tmp/sommelier /usr/local/bin/sommelier
+
+export XDG_RUNTIME_DIR=/run/chrome
+sommelier --parent \
+  --socket=wayland-sommelier-vscode \
+  --display=/run/chrome/wayland-0 \
+  --scale=1 \
+  --noop-driver \
+  --no-support-damage-buffer \
+  --no-client-scaling-protocols
 ```
 
-The script takes no arguments. It requires passwordless `sudo`, runs
-`dev_install` for the pinned `kukui` developer sysroot, installs the matching
-prebuilt Flatpak/portal runtime bundle, verifies its SHA-256 checksum, and
-performs a non-root bubblewrap smoke test. The bundle is built for ARM64
-`kukui` ChromeOS `16765.41.0`; the script refuses other ChromeOS versions.
-It resolves the latest `main` commit through GitHub's public API with `curl`;
-the target Chromebook does not need the `gh` CLI. For safety, it refuses to run when
-`/usr/local` already contains anything; remove the existing developer sysroot
-with `sudo dev_install --uninstall` and rerun it if necessary. It never empties
-an existing `/usr/local` itself.
-
-The pinned build fixes the ChromeOS developer sysroot's missing target-prefix
-metadata and old Portage environment propagation. The runtime bundle avoids
-trying to compile the complete Flatpak dependency graph on the Chromebook. It
-does not add the general Gentoo repository, and it does not overwrite the
-immutable ChromeOS root.
-
-If the command is launched from a controlling PC with an authenticated `gh`,
-resolve the current `main` SHA there and stream the exact revision to the
-Chromebook over SSH. Replace the SSH key and target with your own values:
+Leave that shell running. In a second host shell:
 
 ```sh
-ref="$(gh api repos/rycont/chromeos-flatpak/commits/main --jq .sha)" && \
-curl -fsSL "https://raw.githubusercontent.com/rycont/chromeos-flatpak/${ref}/install.sh" | \
-ssh -T -i /path/to/key chronos@chromebook \
-  "CHROMEOS_FLATPAK_REV=${ref} /bin/bash --noprofile --norc -s"
+flatpak --user run \
+  --socket=wayland \
+  --filesystem=/run/chrome \
+  --env=XDG_RUNTIME_DIR=/run/chrome \
+  --env=WAYLAND_DISPLAY=wayland-sommelier-vscode \
+  --env=GDK_BACKEND=wayland \
+  --env=ELECTRON_OZONE_PLATFORM_HINT=wayland \
+  --env=GTK_A11Y=none \
+  --env=LIBGL_ALWAYS_SOFTWARE=1 \
+  --no-documents-portal \
+  --command=/app/bin/zypak-wrapper.sh \
+  com.visualstudio.code \
+  /app/extra/vscode/code \
+  --no-sandbox --disable-gpu --disable-gpu-compositing \
+  --disable-dev-shm-usage --ozone-platform=wayland \
+  --enable-features=UseOzonePlatform --new-window
 ```
 
-The `CHROMEOS_FLATPAK_REV` value prevents `main` moving between the API lookup
-and the archive download. The Chromebook itself only needs the tools used by
-`install.sh`; it does not need the `gh` CLI.
+</details>
 
-## Portage configuration
+## Notes
 
-For manual or incremental installation, clone this repository to a persistent
-path on the Chromebook and install the two example configuration files. The
-overlay includes its compatible eclasses, so a separate Gentoo repository is
-not needed. If you use another path, adjust `location` in
-`config/repos.conf/flatpak-chromeos.conf` first:
+- The installer is pinned to the tested `kukui` R152 target and refuses other
+  ChromeOS versions.
+- Sommelier is optional and is not installed automatically.
+- The release Sommelier binary intentionally includes debug information for
+  continued troubleshooting.
+- The installer does not empty an existing `/usr/local`; remove an old
+  developer sysroot with `sudo dev_install --uninstall` first if needed.
 
-```sh
-install -d /usr/local/portage
-git clone --depth=1 https://github.com/rycont/chromeos-flatpak.git \
-  /usr/local/portage/flatpak-chromeos
-install -d /usr/local/etc/portage/repos.conf \
-  /usr/local/etc/portage/package.use \
-  /usr/local/etc/portage/package.accept_keywords
-cp /usr/local/portage/flatpak-chromeos/config/repos.conf/flatpak-chromeos.conf \
-  /usr/local/etc/portage/repos.conf/
-cp /usr/local/portage/flatpak-chromeos/config/package.use/flatpak-chromeos \
-  /usr/local/etc/portage/package.use/
-cp /usr/local/portage/flatpak-chromeos/config/package.accept_keywords/flatpak-chromeos \
-  /usr/local/etc/portage/package.accept_keywords/
-```
-
-Then, from the ChromeOS host shell:
-
-```sh
-source /etc/profile
-export PORTAGE_CONFIGROOT=/usr/local
-export ROOT=/usr/local
-export PORTDIR_OVERLAY=/usr/local/portage/flatpak-chromeos
-export LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib
-export PORTAGE_BINHOST="https://commondatastorage.googleapis.com/chromeos-dev-installer/board/kukui/16765.41.0/packages https://commondatastorage.googleapis.com/chromeos-prebuilt/board/arm64-generic/postsubmit-R156-16821.0.0-87474-8670646292013436097/packages"
-/usr/local/bin/emerge --ignore-default-opts \
-  --config-root=/usr/local --root=/usr/local \
-  --usepkg --getbinpkg --verbose \
-  sys-apps/flatpak sys-apps/xdg-desktop-portal
-```
-
-The board's binary repository can satisfy unchanged ChromeOS dependencies;
-overlay packages are built locally when a complete compatible SDK/toolchain is
-available. The one-command Chromebook path uses the tested release bundle
-instead of compiling this transaction on the device. After either path,
-start a new shell or run `source /usr/local/etc/profile`, then verify with
-`flatpak --version`.
-
-## SDK validation
-
-From a ChromiumOS checkout, register the overlay in the `kukui` target
-sysroot and run:
-
-```sh
-emerge-kukui --usepkg --getbinpkg --verbose sys-apps/flatpak
-emerge-kukui --ignore-default-opts --pretend --verbose --tree \
-  --update sys-apps/flatpak
-```
-
-The second command should report zero packages after installation. ARM64
-command-line smoke tests can be run in the SDK with `qemu-aarch64 -L`.
-
-## Limitations
-
-ChromeOS does not provide a conventional Linux desktop session to host-side
-applications. Installing this overlay does not make ChromeOS's native Files
-picker or Ash permission UI available to Flatpak applications. A complete
-portal setup needs a user D-Bus session and a compatible backend such as GTK;
-that backend will provide its own dialogs unless a ChromeOS-specific bridge is
-implemented.
+For the design, build provenance, and patch details, see
+[`docs/how-it-works.md`](docs/how-it-works.md).

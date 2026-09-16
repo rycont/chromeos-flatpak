@@ -1,0 +1,82 @@
+diff --git a/vm_tools/sommelier/sommelier-ctx.cc b/vm_tools/sommelier/sommelier-ctx.cc
+index 9f654d0..ecfcdcb 100644
+--- a/vm_tools/sommelier/sommelier-ctx.cc
++++ b/vm_tools/sommelier/sommelier-ctx.cc
+@@ -180,6 +180,7 @@ void sl_context_init_default(struct sl_context* ctx) {
+   ctx->allow_xwayland_emulate_screen_pos_size = false;
+   ctx->ignore_stateless_toplevel_configure = false;
+   ctx->only_client_can_exit_fullscreen = false;
++  ctx->expose_scaling_protocols = true;
+   ctx->default_seat = nullptr;
+   ctx->selection_window = XCB_WINDOW_NONE;
+   ctx->selection_owner = XCB_WINDOW_NONE;
+diff --git a/vm_tools/sommelier/sommelier-ctx.h b/vm_tools/sommelier/sommelier-ctx.h
+index 79eef25..ffa8b4e 100644
+--- a/vm_tools/sommelier/sommelier-ctx.h
++++ b/vm_tools/sommelier/sommelier-ctx.h
+@@ -225,6 +225,7 @@ struct sl_context {
+   bool use_explicit_fence;
+   bool use_direct_scale;
+   bool viewport_resize;
++  bool expose_scaling_protocols;
+   bool allow_xwayland_emulate_screen_pos_size;
+   bool ignore_stateless_toplevel_configure;
+   bool only_client_can_exit_fullscreen;
+diff --git a/vm_tools/sommelier/sommelier.cc b/vm_tools/sommelier/sommelier.cc
+index 1b2815d..052ea6b 100644
+--- a/vm_tools/sommelier/sommelier.cc
++++ b/vm_tools/sommelier/sommelier.cc
+@@ -652,7 +652,9 @@ void sl_registry_handler(void* data,
+         wl_registry_bind(registry, id, &wp_viewporter_interface, 1));
+     assert(!ctx->viewporter);
+     ctx->viewporter = viewporter;
+-    viewporter->host_viewporter_global = sl_viewporter_global_create(ctx);
++    if (ctx->expose_scaling_protocols) {
++      viewporter->host_viewporter_global = sl_viewporter_global_create(ctx);
++    }
+     // Allow non-integer scale.
+     ctx->scale = MIN(MAX_SCALE, MAX(MIN_SCALE, ctx->desired_scale));
+   } else if (strcmp(interface, "zwp_linux_dmabuf_v1") == 0) {
+@@ -787,8 +789,10 @@ void sl_registry_handler(void* data,
+             registry, id, &wp_fractional_scale_manager_v1_interface, 1));
+     assert(!ctx->fractional_scale_manager);
+     ctx->fractional_scale_manager = fractional_scale_manager;
+-    fractional_scale_manager->host_fractional_scale_manager_global =
+-        sl_fractional_scale_manager_global_create(ctx);
++    if (ctx->expose_scaling_protocols) {
++      fractional_scale_manager->host_fractional_scale_manager_global =
++          sl_fractional_scale_manager_global_create(ctx);
++    }
+   } else if (strcmp(interface, "zwp_idle_inhibit_manager_v1") == 0) {
+     struct sl_idle_inhibit_manager* idle_inhibit =
+         static_cast<sl_idle_inhibit_manager*>(
+@@ -3736,6 +3740,8 @@ static void sl_print_usage() {
+       "  --glamor\t\t\tUse glamor to accelerate X11 clients\n"
+       "  --timing-filename=PATH\tPath to timing output log\n"
+       "  --direct-scale\t\tEnable direct scaling mode\n"
++      "  --no-client-scaling-protocols\tDo not advertise viewporter or\n"
++      "\t\t\t\t fractional-scale to clients.\n"
+       "  --viewport-resize\t\tUse viewport to resize unresizable windows.\n"
+ #ifdef PERFETTO_TRACING
+       "  --trace-filename=PATH\t\tPath to Perfetto trace filename\n"
+@@ -4009,7 +4015,10 @@ int sl_run_parent(int argc,
+             strstr(arg, "--vm-identififer") == arg ||
+             strstr(arg, "--trace-system") == arg ||
+             strstr(arg, "--virtgpu-channel") == arg ||
+-            strstr(arg, "--enable-linux-dmabuf") == arg) {
++            strstr(arg, "--enable-linux-dmabuf") == arg ||
++            strstr(arg, "--noop-driver") == arg ||
++            strstr(arg, "--no-support-damage-buffer") == arg ||
++            strstr(arg, "--no-client-scaling-protocols") == arg) {
+           args[i++] = arg;
+         }
+       }
+@@ -4264,6 +4273,8 @@ int real_main(int argc, char** argv) {
+       client_fd = atoi(sl_arg_value(arg));
+     } else if (strstr(arg, "--direct-scale") == arg) {
+       ctx.use_direct_scale = true;
++    } else if (strstr(arg, "--no-client-scaling-protocols") == arg) {
++      ctx.expose_scaling_protocols = false;
+     } else if (strstr(arg, "--scale") == arg) {
+       scale = sl_arg_value(arg);
+     } else if (strstr(arg, "--dpi") == arg) {
